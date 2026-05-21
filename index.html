@@ -26,7 +26,7 @@
     --grid:rgba(80,80,200,0.08);
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%;overflow:hidden;background:var(--bg-0);color:#fff;font-family:'JetBrains Mono',monospace;user-select:none}
+  html,body{height:100%;overflow:hidden;background:var(--bg-0);color:#fff;font-family:'JetBrains Mono',monospace;user-select:none;-webkit-user-select:none;touch-action:none;overscroll-behavior:none}
   body{position:relative}
   canvas{position:absolute;inset:0;display:block;cursor:crosshair;image-rendering:pixelated}
 
@@ -104,7 +104,7 @@
   #daily-hud .progress{margin-top:6px;color:var(--green);font-family:'Major Mono Display';font-size:14px}
 
   /* ─── OVERLAYS (menu, profile, shop, settings, gameover) ─────────────── */
-  .screen{position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(20,15,50,0.92),rgba(5,3,15,0.98));backdrop-filter:blur(14px);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100;pointer-events:auto;overflow-y:auto;overflow-x:hidden}
+  .screen{position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(20,15,50,0.92),rgba(5,3,15,0.98));backdrop-filter:blur(14px);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100;pointer-events:auto;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;-webkit-overflow-scrolling:touch}
   .screen.hidden{display:none}
 
   /* logo */
@@ -287,20 +287,131 @@
   body.reduce-motion #scanlines{display:none}
   body.reduce-motion #vignette{opacity:0.3}
 
-  /* mobile */
+  /* ─── TOUCH CONTROLS (joystick + boost button) ─────────────────── */
+  #touch-controls{position:absolute;inset:0;pointer-events:none;z-index:11;display:none}
+  body.touch-mode #touch-controls{display:block}
+  #joystick{position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(34,240,255,0.06);border:2px solid rgba(34,240,255,0.4);box-shadow:0 0 20px rgba(34,240,255,0.3);pointer-events:none;opacity:0;transition:opacity 0.15s}
+  #joystick.active{opacity:1}
+  #joystick .knob{position:absolute;left:50%;top:50%;width:50px;height:50px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7df8ff,#22f0ff);box-shadow:0 0 16px var(--cyan);transform:translate(-50%,-50%)}
+  #boost-btn{position:absolute;right:24px;bottom:24px;width:96px;height:96px;border-radius:50%;background:rgba(255,241,74,0.08);border:2px solid var(--yellow);color:var(--yellow);font-family:'Major Mono Display';font-size:14px;letter-spacing:0.2em;display:flex;align-items:center;justify-content:center;pointer-events:auto;box-shadow:0 0 16px rgba(255,241,74,0.3);user-select:none;-webkit-user-select:none;text-shadow:0 0 8px var(--yellow)}
+  #boost-btn.active{background:var(--yellow);color:var(--bg-0);box-shadow:0 0 30px var(--yellow);transform:scale(0.94)}
+  #boost-btn.disabled{opacity:0.3;border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);box-shadow:none}
+  #boost-btn .ring{position:absolute;inset:6px;border-radius:50%;border:2px solid currentColor;opacity:0.4;pointer-events:none}
+
+  /* mobile menu button on in-game HUD (replaces ESC) */
+  #menu-btn-mobile{position:absolute;top:14px;right:14px;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:18px;display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:12;backdrop-filter:blur(6px)}
+  body.touch-mode #menu-btn-mobile{display:flex}
+
+  /* ─── MOBILE LAYOUT ──────────────────────────────────────────── */
   @media (max-width:760px){
-    .logo{font-size:64px}
-    #menu .profile-summary,#menu .daily-card{min-width:0;width:90%;grid-template-columns:repeat(2,1fr)}
-    #gameover .result{font-size:48px}
-    #gameover .summary-card{grid-template-columns:repeat(2,1fr);min-width:0;width:90%;padding:20px;gap:16px}
-    #gameover .summary-card .v{font-size:28px}
+    /* HUD compaction */
+    #hud{padding:8px 12px;font-size:10px}
+    #hud .stat .lbl{font-size:8px}
+    #hud .stat .val{font-size:13px}
+    #hud .left,#hud .right{gap:2px}
+    #surge-bar{width:170px;top:50px;font-size:8px}
+    #surge-bar .label{font-size:8px;letter-spacing:0.2em}
     #leaderboard{display:none}
-    #surge-announce .title{font-size:40px}
-    .stats-grid{grid-template-columns:repeat(2,1fr)}
-    .achievements{grid-template-columns:1fr}
-    .screen-header h2{font-size:22px}
-    #menu .nav-row{gap:6px}
-    #menu .nav-row .btn{padding:10px 14px;font-size:10px;letter-spacing:0.2em}
+    #controls{display:none}  /* keyboard hint useless on mobile */
+    #boost{display:none}     /* replaced by big touch button */
+    #daily-hud{display:none !important}  /* re-enable on tablets only */
+    #notifs{bottom:140px}
+    .notif{font-size:11px;padding:5px 12px;letter-spacing:0.1em}
+    #surge-announce .title{font-size:36px}
+    #surge-announce .tag,#surge-announce .desc{font-size:9px;letter-spacing:0.2em}
+
+    /* menu */
+    .logo{font-size:56px}
+    .logo-sub{font-size:9px;letter-spacing:0.4em}
+    #menu .menu-inner{padding:24px 16px;gap:6px}
+    #menu .name-input{font-size:16px;width:240px;margin:18px 0 12px}
+    #menu .profile-summary,#menu .daily-card{min-width:0;width:100%;grid-template-columns:repeat(2,1fr);padding:12px 16px;gap:14px}
+    #menu .profile-summary .ps-v{font-size:18px}
+    #menu .profile-summary .ps-l{font-size:8px}
+    #menu .daily-card{padding:12px 14px;gap:12px}
+    #menu .daily-card .dc-tag{font-size:8px;letter-spacing:0.3em}
+    #menu .daily-card .dc-text{font-size:11px}
+    #menu .daily-card .dc-reward{font-size:18px}
+    #menu .nav-row{gap:6px;margin-top:18px;flex-wrap:wrap}
+    #menu .nav-row .btn{padding:9px 12px;font-size:9px;letter-spacing:0.18em}
+    #menu .play-row .btn{padding:14px 32px;font-size:13px}
+    #menu .tips{font-size:9px;letter-spacing:0.2em;margin-top:18px}
+
+    /* shared screens — top-align so long content (profile/shop/settings) doesn't get clipped */
+    #profile-screen,#shop-screen,#settings-screen{justify-content:flex-start;padding:20px 0 80px}
+    /* menu and game-over stay vertically centered */
+    .screen-header{padding:16px 18px;margin-bottom:10px}
+    .screen-header h2{font-size:20px;letter-spacing:0.04em}
+    .screen-body{padding:0 16px 80px}
+
+    /* profile */
+    .profile-card{grid-template-columns:1fr;text-align:center;padding:20px;gap:14px}
+    .profile-card .avatar{width:80px;height:80px;margin:0 auto}
+    .profile-card .info h3{font-size:22px}
+    .profile-card .info .currency-bar{justify-content:center}
+    .profile-card .info .currency{font-size:18px}
+    .stats-grid{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:24px}
+    .stat-tile{padding:14px 10px}
+    .stat-tile .v{font-size:22px}
+    .stat-tile .l{font-size:8px;letter-spacing:0.2em}
+    .section-title{font-size:11px;letter-spacing:0.3em}
+    .achievements{grid-template-columns:1fr;gap:8px}
+    .ach{padding:10px 12px;gap:10px}
+    .ach .ico{width:32px;height:32px;font-size:14px}
+    .ach .info .name{font-size:11px}
+    .ach .info .desc{font-size:9px}
+    .lb-item{grid-template-columns:30px 1fr auto auto;gap:10px;padding:8px 12px;font-size:10px}
+    .lb-item .when{display:none}
+    .lb-item .rank{font-size:14px}
+
+    /* shop */
+    .shop-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+    .shop-item{padding:12px;gap:8px}
+    .shop-item .name{font-size:11px}
+    .shop-item .price .cost{font-size:13px}
+    .action-btn{padding:7px 10px;font-size:9px}
+    .shop-item .rarity-tag{font-size:7px;padding:2px 6px}
+    .shop-currency{padding:10px 14px;gap:12px;margin-bottom:14px;flex-wrap:wrap;justify-content:center}
+    .shop-currency .c{font-size:13px}
+
+    /* settings */
+    .setting{grid-template-columns:1fr;gap:10px;padding:14px 16px}
+    .setting input[type=range]{width:100%}
+    .setting .info .name{font-size:11px}
+    .setting .info .desc{font-size:9px}
+    .danger-section .btn{flex:1;min-width:0}
+
+    /* game over */
+    #gameover .result{font-size:44px;letter-spacing:0.02em}
+    #gameover .reason{font-size:11px;letter-spacing:0.2em;margin-bottom:20px;padding:0 16px;text-align:center}
+    #gameover .summary-card{grid-template-columns:repeat(2,1fr);min-width:0;width:92%;padding:16px;gap:14px;margin-bottom:14px}
+    #gameover .summary-card .v{font-size:24px}
+    #gameover .summary-card .l{font-size:8px;letter-spacing:0.2em}
+    #gameover .rewards{flex-direction:column;gap:8px;width:92%}
+    #gameover .reward-chip{font-size:11px;padding:8px 14px;text-align:center;width:100%;box-sizing:border-box}
+    #gameover .actions{flex-direction:column;width:80%;gap:10px}
+    #gameover .actions .btn{width:100%;padding:14px;font-size:11px}
+  }
+
+  /* very narrow screens (small phones) */
+  @media (max-width:380px){
+    .logo{font-size:44px}
+    #menu .nav-row .btn{padding:8px 10px;font-size:8px;letter-spacing:0.12em}
+    .shop-grid{grid-template-columns:1fr}
+    #boost-btn{width:80px;height:80px;right:16px;bottom:16px;font-size:12px}
+    #joystick{width:100px;height:100px}
+    #joystick .knob{width:42px;height:42px}
+  }
+
+  /* landscape phones — adjust HUD position */
+  @media (max-height:500px) and (orientation:landscape){
+    #hud{padding:6px 14px}
+    #surge-bar{top:38px;width:200px}
+    #menu .menu-inner{padding:14px;gap:4px}
+    .logo{font-size:48px;margin-bottom:0}
+    #menu .name-input{margin:10px 0 8px;padding:6px}
+    #menu .profile-summary{padding:8px 14px}
+    #menu .tips{display:none}
   }
 </style>
 </head>
@@ -341,6 +452,13 @@
     <div class="progress" id="daily-hud-progress"></div>
   </div>
 </div>
+
+<!-- TOUCH CONTROLS (only visible in touch-mode) -->
+<div id="touch-controls">
+  <div id="joystick"><div class="knob"></div></div>
+</div>
+<button id="boost-btn" style="display:none">BOOST<div class="ring"></div></button>
+<button id="menu-btn-mobile" aria-label="Menu">☰</button>
 
 <div id="killcam-overlay">REPLAY • SLOW MOTION</div>
 
@@ -1407,43 +1525,168 @@ function initMatch(playerName) {
 
 // ============================================================================
 // SECTION 11 — INPUT
+// ----------------------------------------------------------------------------
+// Two input modes:
+//  - Desktop: mouse position is the absolute target (cell moves toward cursor)
+//  - Touch:   virtual joystick produces a direction vector; the cell moves in
+//             that direction (no on-screen target point)
+// The mode is selected on first input event so the page handles hybrid devices.
 // ============================================================================
 
-const input = { mouseX: window.innerWidth/2, mouseY: window.innerHeight/2, boostHeld: false };
+const input = {
+  mouseX: 0, mouseY: 0, boostHeld: false,
+  // touch mode: direction vector instead of screen target
+  isTouchMode: false,
+  dirX: 0, dirY: 0,
+  // joystick state
+  joyActive: false, joyOriginX: 0, joyOriginY: 0,
+  joyMaxRadius: 60,
+};
+// initial mouse target = center of screen so the cell doesn't shoot off
+input.mouseX = window.innerWidth / 2;
+input.mouseY = window.innerHeight / 2;
 
+// ── Detect touch capability ──────────────────────────────────────
+const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+if (hasTouch) {
+  document.body.classList.add('touch-mode');
+  input.isTouchMode = true;
+}
+
+// ── DESKTOP: mouse + keyboard ────────────────────────────────────
 window.addEventListener('mousemove', e => {
+  if (input.isTouchMode) return;  // ignore on touch devices
   input.mouseX = e.clientX;
   input.mouseY = e.clientY;
 });
-window.addEventListener('mousedown', e => { if (e.button===0) input.boostHeld = true; });
-window.addEventListener('mouseup',   e => { if (e.button===0) input.boostHeld = false; });
+window.addEventListener('mousedown', e => {
+  if (input.isTouchMode) return;
+  if (e.button === 0) input.boostHeld = true;
+});
+window.addEventListener('mouseup', e => {
+  if (input.isTouchMode) return;
+  if (e.button === 0) input.boostHeld = false;
+});
 window.addEventListener('keydown', e => {
   if (e.code === 'Space') { input.boostHeld = true; e.preventDefault(); }
-  if (e.code === 'Escape') {
-    if (!S.over && S.player?.alive) {
-      // pause = go to menu (drop the match)
-      // For simplicity: ESC during match = forfeit
-      gameOver('Match abandoned', false);
-    }
+  if (e.code === 'Escape' && !S.over && S.player?.alive) {
+    gameOver('Match abandoned', false);
   }
 });
 window.addEventListener('keyup', e => { if (e.code === 'Space') input.boostHeld = false; });
+
+// ── MOBILE: virtual joystick + boost button ─────────────────────
+const joystickEl = $('joystick');
+const boostBtn = $('boost-btn');
+const menuBtnMobile = $('menu-btn-mobile');
+
+function updateJoystickPosition(x, y) {
+  joystickEl.style.left = (x - 60) + 'px';
+  joystickEl.style.top = (y - 60) + 'px';
+}
+function updateKnobPosition(dx, dy) {
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const max = input.joyMaxRadius;
+  let kx = dx, ky = dy;
+  if (len > max) { kx = (dx/len)*max; ky = (dy/len)*max; }
+  const knob = joystickEl.querySelector('.knob');
+  knob.style.left = `calc(50% + ${kx}px)`;
+  knob.style.top  = `calc(50% + ${ky}px)`;
+  // direction vector — normalized, magnitude = how far pulled (0..1)
+  input.dirX = kx / max;
+  input.dirY = ky / max;
+}
+function endJoystick() {
+  input.joyActive = false;
+  input.dirX = 0; input.dirY = 0;
+  joystickEl.classList.remove('active');
+  const knob = joystickEl.querySelector('.knob');
+  knob.style.left = '50%'; knob.style.top = '50%';
+}
+
+let joyTouchId = null;
+let boostTouchId = null;
+
+// helper: is touch on/inside the boost button rectangle
+function touchOnBoost(t) {
+  const r = boostBtn.getBoundingClientRect();
+  return t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
+}
+function touchOnMenuBtn(t) {
+  const r = menuBtnMobile.getBoundingClientRect();
+  return t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
+}
+
 window.addEventListener('touchstart', e => {
-  if (e.touches.length) {
-    input.mouseX = e.touches[0].clientX;
-    input.mouseY = e.touches[0].clientY;
-    input.boostHeld = e.touches.length >= 2;
+  // only react during gameplay (not when a menu screen is showing)
+  if (Router.current !== 'ingame') return;
+  for (const t of e.changedTouches) {
+    // touch on boost button → boost
+    if (touchOnBoost(t)) {
+      boostTouchId = t.identifier;
+      input.boostHeld = true;
+      boostBtn.classList.add('active');
+      continue;
+    }
+    // touch on menu button → handled by its own listener below
+    if (touchOnMenuBtn(t)) continue;
+    // otherwise: start joystick at touch point (if not already active)
+    if (!input.joyActive) {
+      joyTouchId = t.identifier;
+      input.joyActive = true;
+      input.joyOriginX = t.clientX;
+      input.joyOriginY = t.clientY;
+      updateJoystickPosition(t.clientX, t.clientY);
+      updateKnobPosition(0, 0);
+      joystickEl.classList.add('active');
+    }
   }
   e.preventDefault();
-}, {passive:false});
+}, { passive: false });
+
 window.addEventListener('touchmove', e => {
-  if (e.touches.length) {
-    input.mouseX = e.touches[0].clientX;
-    input.mouseY = e.touches[0].clientY;
+  if (Router.current !== 'ingame') return;
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) {
+      updateKnobPosition(t.clientX - input.joyOriginX, t.clientY - input.joyOriginY);
+    }
   }
   e.preventDefault();
-}, {passive:false});
-window.addEventListener('touchend', () => { input.boostHeld = false; });
+}, { passive: false });
+
+window.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) {
+      joyTouchId = null;
+      endJoystick();
+    }
+    if (t.identifier === boostTouchId) {
+      boostTouchId = null;
+      input.boostHeld = false;
+      boostBtn.classList.remove('active');
+    }
+  }
+});
+
+window.addEventListener('touchcancel', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) { joyTouchId = null; endJoystick(); }
+    if (t.identifier === boostTouchId) { boostTouchId = null; input.boostHeld = false; boostBtn.classList.remove('active'); }
+  }
+});
+
+// mobile menu button: opens menu (abandons match)
+menuBtnMobile.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!S.over && S.player?.alive) {
+    gameOver('Match abandoned', false);
+  } else if (S.over) {
+    Router.show('menu');
+  }
+});
+// prevent the touchstart from also being treated as joystick
+menuBtnMobile.addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
+
 
 // ============================================================================
 // SECTION 12 — BOT AI
@@ -1530,12 +1773,26 @@ function tick(dt) {
   // player input
   const p = S.player;
   if (p.alive) {
-    const cx = canvas.width/(2*(window.devicePixelRatio||1));
-    const cy = canvas.height/(2*(window.devicePixelRatio||1));
-    let dx = (input.mouseX - cx) * (ProfileStore.data.settings.sensitivity || 1);
-    let dy = (input.mouseY - cy) * (ProfileStore.data.settings.sensitivity || 1);
+    let dx, dy;
+    if (input.isTouchMode) {
+      // joystick: dirX/dirY is a normalized direction vector (0..1 magnitude)
+      // Map to a target ~400px in that direction so the cell follows naturally.
+      const reach = 400 * (ProfileStore.data.settings.sensitivity || 1);
+      dx = input.dirX * reach;
+      dy = input.dirY * reach;
+    } else {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      dx = (input.mouseX - cx) * (ProfileStore.data.settings.sensitivity || 1);
+      dy = (input.mouseY - cy) * (ProfileStore.data.settings.sensitivity || 1);
+    }
     if (S.surgeMods.invert) { dx = -dx; dy = -dy; }
-    p.targetX = p.x + dx; p.targetY = p.y + dy;
+    // require some input magnitude on touch mode, else idle (no forced drift)
+    if (input.isTouchMode && Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+      p.targetX = p.x; p.targetY = p.y;
+    } else {
+      p.targetX = p.x + dx; p.targetY = p.y + dy;
+    }
     p.boosting = input.boostHeld && p.mass > CFG.BOOST_MIN_MASS && p.boost > 0.05;
     if (p.boosting && Math.random() < 0.08) AudioEngine.boost();
   }
@@ -1556,11 +1813,16 @@ function tick(dt) {
   for (const e of S.entities) {
     if (e.kind === 'cell' && e.alive) {
       if (e.isBot) updateBotAI(S, e, dt);
-      const ang = angTo(e, { x:e.targetX, y:e.targetY });
-      const baseSpeed = massToSpeed(e.mass) * S.surgeMods.speedMult;
-      const speed = baseSpeed * (e.boosting ? CFG.BOOST_MULT : 1);
-      e.vx += Math.cos(ang)*speed*dt*60*0.18;
-      e.vy += Math.sin(ang)*speed*dt*60*0.18;
+      const tdx = e.targetX - e.x, tdy = e.targetY - e.y;
+      // skip acceleration if target is effectively the cell's own position
+      // (happens on touch mode when joystick is released — prevents drift)
+      if (tdx*tdx + tdy*tdy > 1) {
+        const ang = Math.atan2(tdy, tdx);
+        const baseSpeed = massToSpeed(e.mass) * S.surgeMods.speedMult;
+        const speed = baseSpeed * (e.boosting ? CFG.BOOST_MULT : 1);
+        e.vx += Math.cos(ang)*speed*dt*60*0.18;
+        e.vy += Math.sin(ang)*speed*dt*60*0.18;
+      }
       // black hole pull
       if (S.surgeMods.blackHole) {
         const bh = S.surgeMods.blackHole;
@@ -1591,9 +1853,16 @@ function tick(dt) {
       if (e.y < r) { e.y = r; e.vy = Math.abs(e.vy)*0.5; }
       if (e.y > CFG.WORLD.h-r) { e.y = CFG.WORLD.h-r; e.vy = -Math.abs(e.vy)*0.5; }
       e.wobble += dt * (4 + (e.boosting?4:0));
-      const tang = { x:Math.cos(ang), y:Math.sin(ang) };
-      e.eyeOffset.x = lerp(e.eyeOffset.x, tang.x*0.3, dt*8);
-      e.eyeOffset.y = lerp(e.eyeOffset.y, tang.y*0.3, dt*8);
+      // eyes track movement direction; use velocity vector so eyes still
+      // do something sensible when the cell isn't actively heading anywhere.
+      const vlen = Math.sqrt(e.vx*e.vx + e.vy*e.vy);
+      if (vlen > 0.05) {
+        e.eyeOffset.x = lerp(e.eyeOffset.x, (e.vx/vlen)*0.3, dt*8);
+        e.eyeOffset.y = lerp(e.eyeOffset.y, (e.vy/vlen)*0.3, dt*8);
+      } else {
+        e.eyeOffset.x = lerp(e.eyeOffset.x, 0, dt*4);
+        e.eyeOffset.y = lerp(e.eyeOffset.y, 0, dt*4);
+      }
       if (e === S.player && e.mass > S.peakMass) S.peakMass = e.mass;
     }
     else if (e.kind === 'particle') {
@@ -1671,7 +1940,11 @@ function tick(dt) {
   if (p.alive) {
     S.cam.x = lerp(S.cam.x, p.x, CFG.CAM_LERP);
     S.cam.y = lerp(S.cam.y, p.y, CFG.CAM_LERP);
-    const targetZoom = clamp(Math.pow(20/(p.mass+15), 0.22)*1.5, 0.35, 1.4);
+    // On smaller screens, pull the camera in tighter so the player can actually
+    // see threats and food. The base zoom is calibrated for ~1200px screens.
+    const screenScale = Math.min(window.innerWidth, window.innerHeight) / 800;
+    const screenAdjust = clamp(screenScale, 0.55, 1.2);
+    const targetZoom = clamp(Math.pow(20/(p.mass+15), 0.22)*1.5*screenAdjust, 0.25, 1.4);
     S.cam.zoom = lerp(S.cam.zoom, targetZoom, 0.04);
   }
   S.shake *= 0.86;
@@ -2191,6 +2464,9 @@ const Router = {
       el.classList.toggle('hidden', id !== screenId);
     });
     this.current = screenId;
+    // hide mobile boost button when not in match
+    const boostBtn = $('boost-btn');
+    if (boostBtn) boostBtn.style.display = 'none';
     AudioEngine.ui();
     if (screenId === 'menu') renderMenu();
     else if (screenId === 'profile-screen') renderProfileScreen();
@@ -2201,6 +2477,12 @@ const Router = {
     ['menu','profile-screen','shop-screen','settings-screen','gameover'].forEach(id => {
       $(id)?.classList.add('hidden');
     });
+    this.current = 'ingame';
+    // show boost button on mobile when entering a match
+    if (input.isTouchMode) {
+      const boostBtn = $('boost-btn');
+      if (boostBtn) boostBtn.style.display = 'flex';
+    }
   }
 };
 
