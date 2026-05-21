@@ -3,29 +3,36 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-<title>SURGE — Neon Prototype</title>
+<title>SURGE — Neon Arena</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg-0:#05030f;
     --bg-1:#0a0820;
+    --bg-2:#120e2e;
     --cyan:#22f0ff;
     --magenta:#ff2bd6;
     --yellow:#fff14a;
     --green:#39ff88;
     --red:#ff3860;
+    --purple:#a070ff;
+    --orange:#ff8c1a;
+    --r-common:#8a8aa3;
+    --r-rare:#5588ff;
+    --r-epic:#a070ff;
+    --r-legendary:#ffaa00;
     --grid:rgba(80,80,200,0.08);
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:var(--bg-0);color:#fff;font-family:'JetBrains Mono',monospace;user-select:none}
   body{position:relative}
   canvas{position:absolute;inset:0;display:block;cursor:crosshair;image-rendering:pixelated}
+
+  /* ─── HUD ─────────────────────────────────────────────────────────── */
   #ui{position:absolute;inset:0;pointer-events:none;z-index:10}
   .panel{pointer-events:auto}
-
-  /* HUD */
   #hud{position:absolute;top:0;left:0;right:0;padding:16px 22px;display:flex;justify-content:space-between;align-items:flex-start;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;mix-blend-mode:screen}
   #hud .left,#hud .right{display:flex;flex-direction:column;gap:6px}
   #hud .right{align-items:flex-end}
@@ -36,14 +43,14 @@
   .stat.kills .val{color:var(--magenta);text-shadow:0 0 12px var(--magenta)}
   .stat.rank .val{color:var(--yellow);text-shadow:0 0 12px var(--yellow)}
 
-  /* SURGE timer */
-  #surge-bar{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);top:74px;left:50%;width:280px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:9px;letter-spacing:0.4em;opacity:0.7}
+  /* surge bar */
+  #surge-bar{position:absolute;top:74px;left:50%;transform:translateX(-50%);width:280px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:9px;letter-spacing:0.4em;opacity:0.7}
   #surge-bar .track{width:100%;height:2px;background:rgba(255,255,255,0.08);position:relative;overflow:hidden}
   #surge-bar .fill{position:absolute;inset:0;width:0%;background:linear-gradient(90deg,var(--cyan),var(--magenta));box-shadow:0 0 10px var(--magenta)}
   #surge-bar .label{color:rgba(255,255,255,0.5)}
 
-  /* SURGE announcement */
-  #surge-announce{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%) scale(0.6);text-align:center;opacity:0;transition:none;pointer-events:none}
+  /* surge announce */
+  #surge-announce{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%) scale(0.6);text-align:center;opacity:0;pointer-events:none}
   #surge-announce .tag{font-family:'JetBrains Mono';font-size:11px;letter-spacing:0.6em;color:var(--magenta);text-shadow:0 0 20px var(--magenta);margin-bottom:8px}
   #surge-announce .title{font-family:'Major Mono Display';font-size:64px;letter-spacing:0.04em;line-height:1;text-shadow:0 0 30px currentColor, 0 0 60px currentColor}
   #surge-announce .desc{font-size:13px;opacity:0.7;margin-top:12px;letter-spacing:0.2em}
@@ -65,12 +72,14 @@
   .lb-row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
   .lb-row .mass{color:var(--green);font-weight:700}
 
-  /* notifications (kills, etc) */
-  #notifs{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+  /* notifications */
+  #notifs{position:absolute;bottom:130px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
   .notif{font-size:14px;letter-spacing:0.2em;text-transform:uppercase;padding:6px 16px;background:rgba(0,0,0,0.5);border:1px solid currentColor;animation:notifIn 2.5s forwards;backdrop-filter:blur(4px)}
   .notif.kill{color:var(--magenta);border-color:var(--magenta);text-shadow:0 0 8px var(--magenta)}
   .notif.eaten{color:var(--red);border-color:var(--red)}
   .notif.surge{color:var(--yellow);border-color:var(--yellow)}
+  .notif.unlock{color:var(--green);border-color:var(--green)}
+  .notif.achieve{color:var(--purple);border-color:var(--purple)}
   @keyframes notifIn{
     0%{opacity:0;transform:translateY(20px) scale(0.8)}
     10%{opacity:1;transform:translateY(0) scale(1)}
@@ -88,137 +97,1055 @@
   #boost .track{width:200px;height:3px;background:rgba(255,255,255,0.08);position:relative;overflow:hidden}
   #boost .fill{position:absolute;inset:0;width:100%;background:linear-gradient(90deg,var(--yellow),var(--cyan));box-shadow:0 0 8px var(--cyan);transition:width 0.1s linear}
 
-  /* main menu overlay */
-  #menu,#gameover{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(10,8,32,0.7),rgba(5,3,15,0.95));backdrop-filter:blur(12px);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100;pointer-events:auto}
-  #menu .logo{font-family:'Major Mono Display';font-size:120px;letter-spacing:0.04em;background:linear-gradient(180deg,var(--cyan) 0%,var(--magenta) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 40px rgba(255,43,214,0.4);line-height:1;position:relative}
-  #menu .logo::after{content:'SURGE';position:absolute;inset:0;background:linear-gradient(180deg,var(--cyan) 0%,var(--magenta) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:blur(20px);opacity:0.6;z-index:-1}
-  #menu .sub{font-size:11px;letter-spacing:0.6em;opacity:0.6;margin-top:-4px;margin-bottom:48px;text-transform:uppercase}
-  #menu .name-input{background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.2);color:#fff;font-family:'JetBrains Mono';font-size:18px;text-align:center;padding:8px 12px;letter-spacing:0.2em;outline:none;width:280px;margin-bottom:32px;text-transform:uppercase}
-  #menu .name-input:focus{border-bottom-color:var(--cyan);box-shadow:0 1px 0 var(--cyan)}
-  .btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:'JetBrains Mono';font-weight:700;padding:14px 40px;letter-spacing:0.4em;font-size:13px;cursor:pointer;text-transform:uppercase;transition:all 0.2s;position:relative;overflow:hidden}
-  .btn:hover{background:var(--cyan);color:var(--bg-0);box-shadow:0 0 30px var(--cyan)}
-  .btn.magenta{border-color:var(--magenta);color:var(--magenta)}
-  .btn.magenta:hover{background:var(--magenta);color:var(--bg-0);box-shadow:0 0 30px var(--magenta)}
-  #menu .tips{margin-top:60px;font-size:10px;letter-spacing:0.3em;opacity:0.4;text-align:center;line-height:2;text-transform:uppercase}
+  /* daily indicator in HUD */
+  #daily-hud{position:absolute;bottom:22px;right:22px;font-size:10px;letter-spacing:0.2em;opacity:0.7;text-align:right;max-width:240px;text-transform:uppercase}
+  #daily-hud .label{color:var(--yellow);font-size:9px;opacity:0.7;margin-bottom:4px}
+  #daily-hud .text{font-size:11px;color:#fff;line-height:1.4}
+  #daily-hud .progress{margin-top:6px;color:var(--green);font-family:'Major Mono Display';font-size:14px}
 
-  /* game over */
+  /* ─── OVERLAYS (menu, profile, shop, settings, gameover) ─────────────── */
+  .screen{position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(20,15,50,0.92),rgba(5,3,15,0.98));backdrop-filter:blur(14px);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100;pointer-events:auto;overflow-y:auto;overflow-x:hidden}
+  .screen.hidden{display:none}
+
+  /* logo */
+  .logo{font-family:'Major Mono Display';font-size:120px;letter-spacing:0.04em;background:linear-gradient(180deg,var(--cyan) 0%,var(--magenta) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 40px rgba(255,43,214,0.4);line-height:1;position:relative}
+  .logo::after{content:attr(data-text);position:absolute;inset:0;background:linear-gradient(180deg,var(--cyan) 0%,var(--magenta) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:blur(20px);opacity:0.6;z-index:-1}
+  .logo-sub{font-size:11px;letter-spacing:0.6em;opacity:0.6;margin-top:-4px;text-transform:uppercase}
+
+  /* buttons */
+  .btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:'JetBrains Mono';font-weight:700;padding:13px 36px;letter-spacing:0.4em;font-size:12px;cursor:pointer;text-transform:uppercase;transition:all 0.18s;position:relative;overflow:hidden;white-space:nowrap}
+  .btn:hover:not(:disabled){background:var(--cyan);color:var(--bg-0);box-shadow:0 0 30px var(--cyan);transform:translateY(-1px)}
+  .btn:disabled{opacity:0.3;cursor:not-allowed}
+  .btn.magenta{border-color:var(--magenta);color:var(--magenta)}
+  .btn.magenta:hover:not(:disabled){background:var(--magenta);color:var(--bg-0);box-shadow:0 0 30px var(--magenta)}
+  .btn.yellow{border-color:var(--yellow);color:var(--yellow)}
+  .btn.yellow:hover:not(:disabled){background:var(--yellow);color:var(--bg-0);box-shadow:0 0 30px var(--yellow)}
+  .btn.green{border-color:var(--green);color:var(--green)}
+  .btn.green:hover:not(:disabled){background:var(--green);color:var(--bg-0);box-shadow:0 0 30px var(--green)}
+  .btn.small{padding:8px 20px;font-size:10px;letter-spacing:0.3em}
+  .btn.ghost{border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.7)}
+  .btn.ghost:hover:not(:disabled){background:rgba(255,255,255,0.08);color:#fff;box-shadow:none;transform:none}
+
+  /* ─── MENU SCREEN ────────────────────────────────────────────────── */
+  #menu .menu-inner{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;padding:40px 20px}
+  #menu .name-input{background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.2);color:#fff;font-family:'JetBrains Mono';font-size:18px;text-align:center;padding:10px 12px;letter-spacing:0.2em;outline:none;width:300px;margin:28px 0 18px;text-transform:uppercase}
+  #menu .name-input:focus{border-bottom-color:var(--cyan);box-shadow:0 1px 0 var(--cyan)}
+  #menu .play-row{display:flex;gap:14px;margin-top:8px}
+  #menu .nav-row{display:flex;gap:10px;margin-top:32px;flex-wrap:wrap;justify-content:center}
+  #menu .tips{margin-top:36px;font-size:10px;letter-spacing:0.3em;opacity:0.4;text-align:center;line-height:2;text-transform:uppercase}
+  #menu .profile-summary{margin-top:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:18px 32px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.3);min-width:480px;text-align:center}
+  #menu .profile-summary .ps-stat{display:flex;flex-direction:column;gap:4px}
+  #menu .profile-summary .ps-v{font-family:'Major Mono Display';font-size:22px;color:var(--cyan)}
+  #menu .profile-summary .ps-stat:nth-child(2) .ps-v{color:var(--magenta)}
+  #menu .profile-summary .ps-stat:nth-child(3) .ps-v{color:var(--yellow)}
+  #menu .profile-summary .ps-stat:nth-child(4) .ps-v{color:var(--green)}
+  #menu .profile-summary .ps-l{font-size:9px;letter-spacing:0.3em;opacity:0.5}
+
+  /* daily card on menu */
+  #menu .daily-card{margin-top:18px;border:1px solid var(--yellow);background:rgba(255,241,74,0.04);padding:14px 22px;display:flex;justify-content:space-between;align-items:center;gap:24px;min-width:480px}
+  #menu .daily-card .dc-left{display:flex;flex-direction:column;gap:4px}
+  #menu .daily-card .dc-tag{font-size:9px;letter-spacing:0.5em;color:var(--yellow);text-transform:uppercase}
+  #menu .daily-card .dc-text{font-size:12px;letter-spacing:0.1em}
+  #menu .daily-card .dc-reward{color:var(--yellow);font-family:'Major Mono Display';font-size:20px;text-shadow:0 0 12px var(--yellow)}
+  #menu .daily-card.done{border-color:var(--green);background:rgba(57,255,136,0.05)}
+  #menu .daily-card.done .dc-tag{color:var(--green)}
+  #menu .daily-card.done .dc-reward{color:var(--green);text-shadow:0 0 12px var(--green)}
+
+  /* ─── PROFILE SCREEN ─────────────────────────────────────────────── */
+  .screen-header{width:100%;max-width:960px;display:flex;justify-content:space-between;align-items:center;padding:24px 32px;margin-bottom:16px}
+  .screen-header h2{font-family:'Major Mono Display';font-size:36px;letter-spacing:0.06em;background:linear-gradient(180deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .screen-body{width:100%;max-width:960px;padding:0 32px 60px}
+
+  .profile-card{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center;padding:32px;border:1px solid rgba(255,255,255,0.1);background:linear-gradient(135deg,rgba(34,240,255,0.04),rgba(255,43,214,0.04));margin-bottom:24px}
+  .profile-card .avatar{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7df8ff,#22f0ff);box-shadow:0 0 30px var(--cyan);position:relative;display:flex;align-items:center;justify-content:center}
+  .profile-card .avatar::after{content:'';position:absolute;inset:8px;border-radius:50%;border:2px solid rgba(255,255,255,0.4)}
+  .profile-card .info h3{font-family:'Major Mono Display';font-size:28px;letter-spacing:0.04em;margin-bottom:4px;color:#fff}
+  .profile-card .info .joined{font-size:10px;letter-spacing:0.3em;opacity:0.5;text-transform:uppercase;margin-bottom:14px}
+  .profile-card .info .currency-bar{display:flex;gap:24px;align-items:center}
+  .profile-card .info .currency{display:flex;align-items:center;gap:8px;font-family:'Major Mono Display';font-size:22px}
+  .profile-card .info .currency .ico{font-size:18px}
+  .profile-card .info .currency.glimmers{color:var(--green);text-shadow:0 0 12px var(--green)}
+  .profile-card .info .currency.sparks{color:var(--yellow);text-shadow:0 0 12px var(--yellow)}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
+  .stat-tile{padding:20px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.3);text-align:center}
+  .stat-tile .v{font-family:'Major Mono Display';font-size:28px;color:var(--cyan);text-shadow:0 0 12px var(--cyan)}
+  .stat-tile:nth-child(2) .v{color:var(--magenta);text-shadow:0 0 12px var(--magenta)}
+  .stat-tile:nth-child(3) .v{color:var(--yellow);text-shadow:0 0 12px var(--yellow)}
+  .stat-tile:nth-child(4) .v{color:var(--green);text-shadow:0 0 12px var(--green)}
+  .stat-tile .l{font-size:9px;letter-spacing:0.3em;opacity:0.5;margin-top:6px;text-transform:uppercase}
+
+  .section-title{font-family:'Major Mono Display';font-size:14px;letter-spacing:0.4em;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7)}
+
+  /* achievements */
+  .achievements{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:32px}
+  .ach{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px 16px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.3);transition:all 0.2s}
+  .ach.done{border-color:var(--green);background:rgba(57,255,136,0.06)}
+  .ach .ico{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:18px;border:1px solid rgba(255,255,255,0.1)}
+  .ach.done .ico{background:rgba(57,255,136,0.15);border-color:var(--green);color:var(--green);text-shadow:0 0 10px var(--green)}
+  .ach .info .name{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px}
+  .ach .info .desc{font-size:10px;opacity:0.6;letter-spacing:0.05em}
+  .ach.done .info .name{color:var(--green)}
+
+  /* leaderboard list (local) */
+  .lb-list{display:flex;flex-direction:column;gap:6px}
+  .lb-item{display:grid;grid-template-columns:40px 1fr auto auto auto;gap:16px;align-items:center;padding:10px 16px;border:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.3);font-size:12px}
+  .lb-item .rank{font-family:'Major Mono Display';font-size:18px;color:var(--yellow);text-shadow:0 0 8px var(--yellow);text-align:center}
+  .lb-item .name{letter-spacing:0.15em}
+  .lb-item .mass{color:var(--green);font-family:'Major Mono Display';min-width:60px;text-align:right}
+  .lb-item .kills{color:var(--magenta);font-family:'Major Mono Display';min-width:40px;text-align:right}
+  .lb-item .when{font-size:10px;opacity:0.5;letter-spacing:0.1em}
+  .lb-empty{text-align:center;padding:40px;opacity:0.4;font-size:11px;letter-spacing:0.2em;text-transform:uppercase}
+
+  /* ─── SHOP SCREEN ────────────────────────────────────────────────── */
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+  .shop-item{position:relative;padding:18px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.4);transition:all 0.2s;cursor:pointer;display:flex;flex-direction:column;gap:10px}
+  .shop-item:hover{transform:translateY(-2px);border-color:rgba(255,255,255,0.3)}
+  .shop-item.common{border-left:3px solid var(--r-common)}
+  .shop-item.rare{border-left:3px solid var(--r-rare)}
+  .shop-item.epic{border-left:3px solid var(--r-epic)}
+  .shop-item.legendary{border-left:3px solid var(--r-legendary);background:radial-gradient(circle at 30% 30%,rgba(255,170,0,0.08),rgba(0,0,0,0.4))}
+  .shop-item .preview{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0.03),transparent);position:relative;overflow:hidden}
+  .shop-item .preview canvas{width:100%;height:100%}
+  .shop-item .rarity-tag{position:absolute;top:8px;right:8px;font-size:8px;letter-spacing:0.3em;padding:3px 8px;text-transform:uppercase;background:rgba(0,0,0,0.6)}
+  .shop-item.common .rarity-tag{color:var(--r-common)}
+  .shop-item.rare .rarity-tag{color:var(--r-rare)}
+  .shop-item.epic .rarity-tag{color:var(--r-epic)}
+  .shop-item.legendary .rarity-tag{color:var(--r-legendary);text-shadow:0 0 8px var(--r-legendary)}
+  .shop-item .name{font-size:13px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase}
+  .shop-item .price{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .shop-item .price .cost{font-family:'Major Mono Display';font-size:16px;color:var(--green)}
+  .shop-item.equipped::after{content:'EQUIPPED';position:absolute;top:8px;left:8px;font-size:8px;letter-spacing:0.3em;padding:3px 8px;color:var(--cyan);background:rgba(0,0,0,0.6);text-transform:uppercase;border:1px solid var(--cyan)}
+  .shop-item.owned .action-btn{border-color:var(--cyan);color:var(--cyan)}
+  .shop-item.locked .action-btn{border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.4)}
+  .action-btn{background:transparent;border:1px solid var(--green);color:var(--green);padding:8px 14px;font-family:inherit;font-size:10px;letter-spacing:0.25em;cursor:pointer;text-transform:uppercase;transition:all 0.15s;width:100%}
+  .action-btn:hover:not(:disabled){background:currentColor;color:var(--bg-0) !important}
+  .action-btn:disabled{opacity:0.5;cursor:not-allowed}
+  .action-btn:hover:not(:disabled) span{color:var(--bg-0)}
+
+  /* shop currency display */
+  .shop-currency{display:flex;gap:24px;align-items:center;padding:14px 22px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.3);margin-bottom:24px;justify-content:flex-end}
+  .shop-currency .c{display:flex;align-items:center;gap:8px;font-family:'Major Mono Display';font-size:18px}
+  .shop-currency .c.glimmers{color:var(--green)}
+  .shop-currency .c.sparks{color:var(--yellow)}
+
+  /* ─── SETTINGS SCREEN ────────────────────────────────────────────── */
+  .settings-list{display:flex;flex-direction:column;gap:16px}
+  .setting{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;padding:18px 22px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.3)}
+  .setting .info .name{font-size:13px;letter-spacing:0.15em;text-transform:uppercase;font-weight:500;margin-bottom:4px}
+  .setting .info .desc{font-size:10px;opacity:0.5;letter-spacing:0.1em}
+  .setting input[type=range]{accent-color:var(--cyan);width:200px}
+  .toggle{position:relative;width:48px;height:24px;background:rgba(255,255,255,0.1);border-radius:12px;cursor:pointer;transition:background 0.2s;border:1px solid rgba(255,255,255,0.15)}
+  .toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:left 0.2s}
+  .toggle.on{background:var(--cyan)}
+  .toggle.on::after{left:26px;background:var(--bg-0)}
+  .danger-section{margin-top:32px;padding:18px 22px;border:1px solid var(--red);background:rgba(255,56,96,0.04)}
+  .danger-section .name{color:var(--red);font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px}
+  .danger-section .desc{font-size:10px;opacity:0.7;margin-bottom:14px;line-height:1.6}
+
+  /* ─── GAME OVER ──────────────────────────────────────────────────── */
   #gameover .result{font-family:'Major Mono Display';font-size:72px;letter-spacing:0.04em;margin-bottom:8px}
   #gameover .result.win{color:var(--yellow);text-shadow:0 0 40px var(--yellow)}
   #gameover .result.lose{color:var(--red);text-shadow:0 0 40px var(--red)}
-  #gameover .reason{font-size:14px;letter-spacing:0.3em;opacity:0.7;margin-bottom:48px;text-transform:uppercase}
-  #gameover .card{background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);padding:32px 48px;margin-bottom:32px;display:grid;grid-template-columns:repeat(4,1fr);gap:32px;min-width:600px;backdrop-filter:blur(8px)}
-  #gameover .card .stat-blk{text-align:center}
-  #gameover .card .stat-blk .v{font-family:'Major Mono Display';font-size:36px;color:var(--cyan);text-shadow:0 0 16px var(--cyan)}
-  #gameover .card .stat-blk:nth-child(2) .v{color:var(--magenta);text-shadow:0 0 16px var(--magenta)}
-  #gameover .card .stat-blk:nth-child(3) .v{color:var(--yellow);text-shadow:0 0 16px var(--yellow)}
-  #gameover .card .stat-blk:nth-child(4) .v{color:var(--green);text-shadow:0 0 16px var(--green)}
-  #gameover .card .stat-blk .l{font-size:10px;letter-spacing:0.4em;opacity:0.5;margin-top:6px;text-transform:uppercase}
-  #gameover .actions{display:flex;gap:16px}
+  #gameover .reason{font-size:14px;letter-spacing:0.3em;opacity:0.7;margin-bottom:32px;text-transform:uppercase}
+  #gameover .summary-card{background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);padding:28px 40px;margin-bottom:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:32px;min-width:600px;backdrop-filter:blur(8px)}
+  #gameover .summary-card .blk{text-align:center}
+  #gameover .summary-card .v{font-family:'Major Mono Display';font-size:36px;color:var(--cyan);text-shadow:0 0 16px var(--cyan)}
+  #gameover .summary-card .blk:nth-child(2) .v{color:var(--magenta);text-shadow:0 0 16px var(--magenta)}
+  #gameover .summary-card .blk:nth-child(3) .v{color:var(--yellow);text-shadow:0 0 16px var(--yellow)}
+  #gameover .summary-card .blk:nth-child(4) .v{color:var(--green);text-shadow:0 0 16px var(--green)}
+  #gameover .summary-card .l{font-size:10px;letter-spacing:0.4em;opacity:0.5;margin-top:6px;text-transform:uppercase}
+  #gameover .rewards{display:flex;gap:24px;margin-bottom:20px;align-items:center}
+  #gameover .reward-chip{padding:10px 20px;border:1px solid var(--green);color:var(--green);font-family:'Major Mono Display';font-size:16px;letter-spacing:0.1em;background:rgba(57,255,136,0.05)}
+  #gameover .reward-chip.daily{border-color:var(--yellow);color:var(--yellow);background:rgba(255,241,74,0.05)}
+  #gameover .reward-chip.unlock{border-color:var(--purple);color:var(--purple);background:rgba(160,112,255,0.05)}
+  #gameover .actions{display:flex;gap:14px;margin-top:8px}
 
-  /* glitch on damage */
+  /* ─── KILL CAM ──────────────────────────────────────────────────── */
+  #killcam-overlay{position:absolute;top:24px;left:50%;transform:translateX(-50%);font-family:'Major Mono Display';font-size:14px;letter-spacing:0.4em;color:var(--red);text-shadow:0 0 16px var(--red);opacity:0;pointer-events:none;z-index:50;text-transform:uppercase}
+  #killcam-overlay.show{animation:killcamPulse 2.5s ease forwards}
+  @keyframes killcamPulse{
+    0%{opacity:0;transform:translateX(-50%) translateY(-20px)}
+    20%{opacity:1;transform:translateX(-50%) translateY(0)}
+    80%{opacity:1}
+    100%{opacity:0}
+  }
+
+  /* glitch / damage */
   body.hit{animation:hitFlash 0.15s}
   @keyframes hitFlash{
     0%{filter:none}
     50%{filter:hue-rotate(120deg) brightness(1.5) contrast(1.4)}
     100%{filter:none}
   }
-
-  /* surge color grade overlay */
   #grade{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:0;transition:opacity 0.6s,background 0.6s;z-index:5}
-
-  /* scanlines */
   #scanlines{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,0.02) 0,rgba(255,255,255,0.02) 1px,transparent 1px,transparent 3px);z-index:6;mix-blend-mode:overlay}
-
-  /* vignette */
   #vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 30%,rgba(0,0,0,0.55) 100%);z-index:4}
 
+  /* reduce motion */
+  body.reduce-motion *{animation-duration:0.1s !important;transition-duration:0.05s !important}
+  body.reduce-motion #scanlines{display:none}
+  body.reduce-motion #vignette{opacity:0.3}
+
+  /* mobile */
   @media (max-width:760px){
-    #menu .logo{font-size:72px}
+    .logo{font-size:64px}
+    #menu .profile-summary,#menu .daily-card{min-width:0;width:90%;grid-template-columns:repeat(2,1fr)}
     #gameover .result{font-size:48px}
-    #gameover .card{grid-template-columns:repeat(2,1fr);min-width:0;width:90%;padding:20px;gap:16px}
-    #gameover .card .stat-blk .v{font-size:28px}
+    #gameover .summary-card{grid-template-columns:repeat(2,1fr);min-width:0;width:90%;padding:20px;gap:16px}
+    #gameover .summary-card .v{font-size:28px}
     #leaderboard{display:none}
     #surge-announce .title{font-size:40px}
+    .stats-grid{grid-template-columns:repeat(2,1fr)}
+    .achievements{grid-template-columns:1fr}
+    .screen-header h2{font-size:22px}
+    #menu .nav-row{gap:6px}
+    #menu .nav-row .btn{padding:10px 14px;font-size:10px;letter-spacing:0.2em}
   }
 </style>
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <div id="vignette"></div>
-  <div id="grade"></div>
-  <div id="scanlines"></div>
+<canvas id="game"></canvas>
+<div id="vignette"></div>
+<div id="grade"></div>
+<div id="scanlines"></div>
 
-  <div id="ui">
-    <div id="hud">
-      <div class="left">
-        <div class="stat mass"><span class="lbl">Mass</span><span class="val" id="mass">10</span></div>
-        <div class="stat kills"><span class="lbl">Kills</span><span class="val" id="kills">0</span></div>
-        <div class="stat rank"><span class="lbl">Rank</span><span class="val" id="rank">#10</span></div>
-      </div>
-      <div class="right">
-        <div class="stat"><span class="lbl">Time</span><span class="val" id="time">3:00</span></div>
-        <div class="stat"><span class="lbl">Players</span><span class="val" id="alive">10</span></div>
-      </div>
+<!-- IN-GAME HUD -->
+<div id="ui">
+  <div id="hud">
+    <div class="left">
+      <div class="stat mass"><span class="lbl">Mass</span><span class="val" id="hud-mass">10</span></div>
+      <div class="stat kills"><span class="lbl">Kills</span><span class="val" id="hud-kills">0</span></div>
+      <div class="stat rank"><span class="lbl">Rank</span><span class="val" id="hud-rank">#10</span></div>
     </div>
-
-    <div id="surge-bar" class="panel">
-      <div class="label" id="surge-label">NEXT SURGE IN 30S</div>
-      <div class="track"><div class="fill" id="surge-fill"></div></div>
-    </div>
-
-    <div id="leaderboard" class="panel">
-      <h3>Leaderboard</h3>
-      <div id="lb-rows"></div>
-    </div>
-
-    <div id="surge-announce"><div class="tag">// SURGE EVENT</div><div class="title" id="surge-title"></div><div class="desc" id="surge-desc"></div></div>
-
-    <div id="notifs"></div>
-
-    <div id="boost" class="panel">
-      <div class="lbl">Boost</div>
-      <div class="track"><div class="fill" id="boost-fill"></div></div>
-    </div>
-
-    <div id="controls" class="panel">
-      <kbd>MOUSE</kbd> Move <kbd>CLICK</kbd> / <kbd>SPACE</kbd> Boost
+    <div class="right">
+      <div class="stat"><span class="lbl">Time</span><span class="val" id="hud-time">3:00</span></div>
+      <div class="stat"><span class="lbl">Alive</span><span class="val" id="hud-alive">10</span></div>
     </div>
   </div>
+  <div id="surge-bar" class="panel">
+    <div class="label" id="surge-label">NEXT SURGE IN 30S</div>
+    <div class="track"><div class="fill" id="surge-fill"></div></div>
+  </div>
+  <div id="leaderboard" class="panel"><h3>Leaderboard</h3><div id="lb-rows"></div></div>
+  <div id="surge-announce"><div class="tag">// SURGE EVENT</div><div class="title" id="surge-title"></div><div class="desc" id="surge-desc"></div></div>
+  <div id="notifs"></div>
+  <div id="boost" class="panel">
+    <div class="lbl">Boost</div>
+    <div class="track"><div class="fill" id="boost-fill"></div></div>
+  </div>
+  <div id="controls" class="panel"><kbd>MOUSE</kbd> Move <kbd>CLICK</kbd>/<kbd>SPACE</kbd> Boost <kbd>ESC</kbd> Menu</div>
+  <div id="daily-hud" class="panel" style="display:none">
+    <div class="label" id="daily-hud-label">DAILY</div>
+    <div class="text" id="daily-hud-text"></div>
+    <div class="progress" id="daily-hud-progress"></div>
+  </div>
+</div>
 
-  <div id="menu" class="panel">
-    <div class="logo">SURGE</div>
-    <div class="sub">Neon Arena // Prototype 0.1</div>
-    <input id="name-input" class="name-input" placeholder="ENTER CALLSIGN" maxlength="14" value="" />
-    <button class="btn" id="play-btn">▶ PLAY</button>
+<div id="killcam-overlay">REPLAY • SLOW MOTION</div>
+
+<!-- MENU SCREEN -->
+<div id="menu" class="screen panel">
+  <div class="menu-inner">
+    <div class="logo" data-text="SURGE">SURGE</div>
+    <div class="logo-sub">Neon Arena // v0.2</div>
+    <input id="name-input" class="name-input" placeholder="ENTER CALLSIGN" maxlength="14" />
+    <div class="play-row">
+      <button class="btn" id="play-btn">▶ PLAY</button>
+    </div>
+    <div class="profile-summary" id="profile-summary"></div>
+    <div class="daily-card" id="daily-card"></div>
+    <div class="nav-row">
+      <button class="btn ghost small" id="nav-profile">◆ PROFILE</button>
+      <button class="btn ghost small" id="nav-shop">◆ SHOP</button>
+      <button class="btn ghost small" id="nav-settings">◆ SETTINGS</button>
+    </div>
     <div class="tips">
-      Eat smaller cells. Avoid bigger ones.<br>
-      SURGE events trigger every 30 seconds — survive the chaos.<br>
-      Last cell standing wins.
+      Eat smaller. Avoid bigger. Survive the SURGE.<br>
+      <span id="tip-extra"></span>
     </div>
   </div>
+</div>
 
-  <div id="gameover" class="panel" style="display:none">
-    <div class="result" id="result-text">VICTORY</div>
-    <div class="reason" id="result-reason"></div>
-    <div class="card">
-      <div class="stat-blk"><div class="v" id="final-mass">0</div><div class="l">Peak Mass</div></div>
-      <div class="stat-blk"><div class="v" id="final-kills">0</div><div class="l">Kills</div></div>
-      <div class="stat-blk"><div class="v" id="final-rank">#0</div><div class="l">Final Rank</div></div>
-      <div class="stat-blk"><div class="v" id="final-time">0:00</div><div class="l">Survived</div></div>
-    </div>
-    <div class="actions">
-      <button class="btn" id="rematch-btn">↻ REMATCH</button>
-      <button class="btn magenta" id="menu-btn">◂ MENU</button>
-    </div>
+<!-- PROFILE SCREEN -->
+<div id="profile-screen" class="screen panel hidden">
+  <div class="screen-header">
+    <h2>PROFILE</h2>
+    <button class="btn ghost small" data-back="menu">◂ BACK</button>
   </div>
+  <div class="screen-body" id="profile-body"></div>
+</div>
+
+<!-- SHOP SCREEN -->
+<div id="shop-screen" class="screen panel hidden">
+  <div class="screen-header">
+    <h2>COSMETICS</h2>
+    <button class="btn ghost small" data-back="menu">◂ BACK</button>
+  </div>
+  <div class="screen-body" id="shop-body"></div>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div id="settings-screen" class="screen panel hidden">
+  <div class="screen-header">
+    <h2>SETTINGS</h2>
+    <button class="btn ghost small" data-back="menu">◂ BACK</button>
+  </div>
+  <div class="screen-body" id="settings-body"></div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" class="screen panel hidden">
+  <div class="result" id="result-text">VICTORY</div>
+  <div class="reason" id="result-reason"></div>
+  <div class="summary-card">
+    <div class="blk"><div class="v" id="final-mass">0</div><div class="l">Peak Mass</div></div>
+    <div class="blk"><div class="v" id="final-kills">0</div><div class="l">Kills</div></div>
+    <div class="blk"><div class="v" id="final-rank">#0</div><div class="l">Final Rank</div></div>
+    <div class="blk"><div class="v" id="final-time">0:00</div><div class="l">Survived</div></div>
+  </div>
+  <div class="rewards" id="rewards"></div>
+  <div class="actions">
+    <button class="btn" id="rematch-btn">↻ REMATCH</button>
+    <button class="btn magenta" id="menu-btn">◂ MENU</button>
+  </div>
+</div>
 
 <script>
 'use strict';
+// ============================================================================
+// SURGE v0.2 — Full Build
+// ----------------------------------------------------------------------------
+// Architecture overview:
+//  - AuthService:  pluggable provider (local now, Firebase stub for swap-in)
+//  - ProfileStore: schema-versioned user state (currency, stats, unlocks)
+//  - Catalog:      cosmetic definitions (skins, rarity, prices)
+//  - AudioEngine:  WebAudio-synthesized SFX, zero asset cost
+//  - Achievements: 12 unlocks, fired by sim events
+//  - DailyChallenge: rotates daily, persisted, tracked across matches
+//  - Sim:          fixed-timestep game loop (unchanged from v1, extended)
+//  - UI:           screen router (menu/profile/shop/settings/gameover)
+// ============================================================================
 
 // ============================================================================
-// SURGE — Neon Cyberpunk Prototype
-// Architecture: fixed-timestep simulation @ 60Hz, decoupled from render.
-// This keeps logic deterministic and reusable for future netcode.
+// SECTION 1 — UTILITIES
+// ============================================================================
+const rand = (a,b) => a + Math.random()*(b-a);
+const randi = (a,b) => Math.floor(rand(a,b));
+const choose = arr => arr[randi(0,arr.length)];
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const lerp = (a,b,t) => a+(b-a)*t;
+const dist2 = (a,b) => { const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; };
+const dist = (a,b) => Math.sqrt(dist2(a,b));
+const angTo = (a,b) => Math.atan2(b.y-a.y, b.x-a.x);
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; };
+const $ = id => document.getElementById(id);
+
+// ============================================================================
+// SECTION 2 — AUTH SERVICE
+// ----------------------------------------------------------------------------
+// Pluggable provider pattern. Current implementation: localStorage.
+// To swap to Firebase Auth: replace `provider` below with the Firebase block
+// (commented further down). The rest of the app calls AuthService.* and
+// doesn't care which provider is active.
+// ============================================================================
+
+const localProvider = {
+  name: 'local',
+  async signIn(callsign) {
+    if (!callsign || callsign.length < 2) throw new Error('Callsign too short');
+    const uid = 'local:' + callsign.toUpperCase();
+    localStorage.setItem('surge.currentUid', uid);
+    return { uid, displayName: callsign.toUpperCase(), provider: 'local' };
+  },
+  async signOut() {
+    localStorage.removeItem('surge.currentUid');
+  },
+  currentUser() {
+    const uid = localStorage.getItem('surge.currentUid');
+    if (!uid) return null;
+    const callsign = uid.replace('local:', '');
+    return { uid, displayName: callsign, provider: 'local' };
+  },
+};
+
+/* ─── FIREBASE PROVIDER (commented; swap-in path) ───────────────────────
+   To enable real cross-device auth:
+   1. Add Firebase SDK to <head>:
+      <\script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.x/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged }
+          from "https://www.gstatic.com/firebasejs/10.x/firebase-auth.js";
+        window.firebaseApp = initializeApp({ apiKey: "...", authDomain: "...",
+          projectId: "..." });
+        window.firebaseAuth = getAuth(window.firebaseApp);
+      <\/script>
+   2. Replace `const AuthService = { provider: localProvider, ... }`
+      with:
+        const firebaseProvider = {
+          name: 'firebase',
+          async signIn(callsign) {
+            const cred = await signInAnonymously(window.firebaseAuth);
+            return { uid: cred.user.uid, displayName: callsign, provider:'firebase' };
+          },
+          async signOut() { await window.firebaseAuth.signOut(); },
+          currentUser() {
+            const u = window.firebaseAuth.currentUser;
+            return u ? { uid: u.uid, displayName: u.displayName||'PLAYER',
+                         provider:'firebase' } : null;
+          },
+        };
+        const AuthService = { provider: firebaseProvider, ... };
+   3. Replace ProfileStore.load/save to use Firestore instead of localStorage.
+   Everything else in this file remains unchanged.
+─────────────────────────────────────────────────────────────────────── */
+
+const AuthService = {
+  provider: localProvider,
+  async signIn(callsign) { return this.provider.signIn(callsign); },
+  async signOut() { return this.provider.signOut(); },
+  currentUser() { return this.provider.currentUser(); },
+};
+
+// ============================================================================
+// SECTION 3 — PROFILE STORE
+// ----------------------------------------------------------------------------
+// Schema-versioned, persisted profile. Single source of truth for everything
+// that survives a match: currency, stats, unlocks, equipped cosmetics,
+// achievements, daily challenge progress, settings, leaderboard.
+// ============================================================================
+
+const SCHEMA_VERSION = 1;
+
+const DEFAULT_PROFILE = () => ({
+  schemaVersion: SCHEMA_VERSION,
+  uid: null,
+  callsign: 'PLAYER',
+  createdAt: Date.now(),
+  // currency
+  glimmers: 0,
+  sparks: 0,    // not earnable; purchasable. Stubbed for future store.
+  // stats
+  stats: {
+    matchesPlayed: 0,
+    matchesWon: 0,
+    totalKills: 0,
+    totalDeaths: 0,
+    peakMass: 0,
+    timeAlive: 0,    // seconds, total across all matches
+    surgesSurvived: 0,
+    foodEaten: 0,
+  },
+  // unlocks (skin ids the user owns; default skin always present)
+  owned: ['default'],
+  equipped: 'default',
+  // achievements
+  achievements: {}, // id -> { unlocked: bool, unlockedAt: ts, progress: n }
+  // daily
+  daily: {
+    date: null,
+    challengeId: null,
+    progress: 0,
+    completed: false,
+    claimed: false,
+  },
+  // leaderboard (local; top 10 best runs by mass)
+  leaderboard: [],
+  // settings
+  settings: {
+    masterVolume: 0.6,
+    sfxVolume: 0.8,
+    musicVolume: 0.4,
+    sensitivity: 1.0,
+    reduceMotion: false,
+    showDamageNumbers: true,
+  },
+});
+
+const ProfileStore = {
+  data: DEFAULT_PROFILE(),
+
+  storageKey(uid) { return `surge.profile.${uid}`; },
+
+  async load(uid) {
+    const raw = localStorage.getItem(this.storageKey(uid));
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        this.data = this.migrate(parsed);
+      } catch (e) {
+        console.warn('Profile parse failed, resetting', e);
+        this.data = DEFAULT_PROFILE();
+        this.data.uid = uid;
+      }
+    } else {
+      this.data = DEFAULT_PROFILE();
+      this.data.uid = uid;
+      this.data.callsign = uid.replace('local:','');
+    }
+    this.save();
+    return this.data;
+  },
+
+  migrate(profile) {
+    // currently v1, no migrations yet. Stub for future schema bumps.
+    if (!profile.schemaVersion || profile.schemaVersion < SCHEMA_VERSION) {
+      // ...migration steps would go here
+      profile.schemaVersion = SCHEMA_VERSION;
+    }
+    // backfill missing fields
+    const d = DEFAULT_PROFILE();
+    return { ...d, ...profile,
+      stats: { ...d.stats, ...(profile.stats||{}) },
+      settings: { ...d.settings, ...(profile.settings||{}) },
+      daily: { ...d.daily, ...(profile.daily||{}) },
+    };
+  },
+
+  save() {
+    if (!this.data.uid) return;
+    localStorage.setItem(this.storageKey(this.data.uid), JSON.stringify(this.data));
+  },
+
+  reset() {
+    if (!this.data.uid) return;
+    localStorage.removeItem(this.storageKey(this.data.uid));
+    this.data = DEFAULT_PROFILE();
+  },
+
+  // helpers
+  addGlimmers(n) { this.data.glimmers += n; this.save(); },
+  spendGlimmers(n) {
+    if (this.data.glimmers < n) return false;
+    this.data.glimmers -= n; this.save(); return true;
+  },
+  ownSkin(id) { return this.data.owned.includes(id); },
+  unlock(id) {
+    if (!this.ownSkin(id)) { this.data.owned.push(id); this.save(); return true; }
+    return false;
+  },
+  equip(id) {
+    if (!this.ownSkin(id)) return false;
+    this.data.equipped = id; this.save(); return true;
+  },
+  addLeaderboardEntry(entry) {
+    this.data.leaderboard.push(entry);
+    this.data.leaderboard.sort((a,b) => b.mass - a.mass);
+    this.data.leaderboard = this.data.leaderboard.slice(0, 10);
+    this.save();
+  },
+};
+
+
+// ============================================================================
+// SECTION 4 — COSMETICS CATALOG
+// ----------------------------------------------------------------------------
+// Skin = { id, name, rarity, price, render(ctx, x, y, r, t) }
+// Each skin defines its own paint method so adding new ones is purely data.
+// ============================================================================
+
+const RARITY = { common:'common', rare:'rare', epic:'epic', legendary:'legendary' };
+
+function paintRadial(ctx, x, y, r, inner, outer) {
+  const g = ctx.createRadialGradient(x - r*0.3, y - r*0.3, r*0.1, x, y, r);
+  g.addColorStop(0, inner); g.addColorStop(0.7, outer); g.addColorStop(1, outer);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+}
+function paintGlow(ctx, x, y, r, color, mult=1.8) {
+  const g = ctx.createRadialGradient(x, y, r*0.4, x, y, r*mult);
+  g.addColorStop(0, color+'80'); g.addColorStop(1, color+'00');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r*mult, 0, Math.PI*2); ctx.fill();
+}
+
+const SKINS = {
+  default: {
+    id:'default', name:'STANDARD', rarity:RARITY.common, price:0, priceFree:true,
+    color:'#22f0ff', light:'#7df8ff',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, this.color);
+      paintRadial(ctx, x, y, r, this.light, this.color);
+      ctx.strokeStyle='rgba(255,255,255,0.4)';
+      ctx.lineWidth=Math.max(1, r*0.04);
+      ctx.beginPath(); ctx.arc(x, y, r*0.92, 0, Math.PI*2); ctx.stroke();
+    },
+  },
+  magenta: {
+    id:'magenta', name:'CRIMSON PULSE', rarity:RARITY.common, price:100,
+    color:'#ff2bd6', light:'#ff6bf0',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, this.color);
+      paintRadial(ctx, x, y, r, this.light, this.color);
+      ctx.strokeStyle='rgba(255,255,255,0.5)';
+      ctx.lineWidth=Math.max(1, r*0.04);
+      ctx.beginPath(); ctx.arc(x, y, r*0.92, 0, Math.PI*2); ctx.stroke();
+    },
+  },
+  sunburst: {
+    id:'sunburst', name:'SUNBURST', rarity:RARITY.common, price:120,
+    color:'#fff14a', light:'#fff89a',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, this.color);
+      paintRadial(ctx, x, y, r, this.light, this.color);
+      // rays
+      ctx.strokeStyle='rgba(255,255,255,0.4)';
+      ctx.lineWidth=Math.max(1, r*0.03);
+      for (let i=0;i<8;i++){
+        const a = (i/8)*Math.PI*2 + t*0.3;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a)*r*0.6, y + Math.sin(a)*r*0.6);
+        ctx.lineTo(x + Math.cos(a)*r*0.9, y + Math.sin(a)*r*0.9);
+        ctx.stroke();
+      }
+    },
+  },
+  voltage: {
+    id:'voltage', name:'VOLTAGE', rarity:RARITY.rare, price:280,
+    color:'#39ff88', light:'#8bffb8',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, this.color, 2.0);
+      paintRadial(ctx, x, y, r, this.light, this.color);
+      // jagged inner ring
+      ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1, r*0.05);
+      ctx.beginPath();
+      for (let i=0;i<=12;i++){
+        const a = (i/12)*Math.PI*2;
+        const rr = r * (0.85 + (i%2 ? 0.05 : -0.05));
+        const px = x + Math.cos(a)*rr, py = y + Math.sin(a)*rr;
+        if (i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    },
+  },
+  rift: {
+    id:'rift', name:'RIFT', rarity:RARITY.rare, price:320,
+    color:'#a070ff', light:'#c5a3ff',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, this.color, 2.0);
+      paintRadial(ctx, x, y, r, this.light, this.color);
+      // rotating arcs
+      ctx.strokeStyle='rgba(255,255,255,0.7)';
+      ctx.lineWidth=Math.max(1, r*0.05);
+      for (let i=0;i<3;i++){
+        const a = t * 1.2 + (i/3)*Math.PI*2;
+        ctx.beginPath();
+        ctx.arc(x, y, r*0.85, a, a + Math.PI*0.4);
+        ctx.stroke();
+      }
+    },
+  },
+  monochrome: {
+    id:'monochrome', name:'MONOCHROME', rarity:RARITY.rare, price:260,
+    color:'#dddddd', light:'#ffffff',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, '#ffffff', 1.6);
+      paintRadial(ctx, x, y, r, '#fff', '#888');
+      ctx.strokeStyle='#000'; ctx.lineWidth=Math.max(1, r*0.04);
+      ctx.beginPath(); ctx.arc(x, y, r*0.85, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1, r*0.025);
+      ctx.beginPath(); ctx.arc(x, y, r*0.6, 0, Math.PI*2); ctx.stroke();
+    },
+  },
+  prism: {
+    id:'prism', name:'PRISM', rarity:RARITY.epic, price:550,
+    color:'#22f0ff', light:'#ff2bd6',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, '#ff2bd6', 2.2);
+      // rainbow gradient body
+      const g = ctx.createRadialGradient(x, y, r*0.1, x, y, r);
+      const hue = (t*30) % 360;
+      g.addColorStop(0, `hsl(${hue}, 100%, 70%)`);
+      g.addColorStop(0.5, `hsl(${(hue+120)%360}, 100%, 60%)`);
+      g.addColorStop(1, `hsl(${(hue+240)%360}, 100%, 50%)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.6)';
+      ctx.lineWidth=Math.max(1, r*0.04);
+      ctx.beginPath(); ctx.arc(x, y, r*0.92, 0, Math.PI*2); ctx.stroke();
+    },
+  },
+  inferno: {
+    id:'inferno', name:'INFERNO', rarity:RARITY.epic, price:620,
+    color:'#ff3860', light:'#ff8c1a',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, '#ff3860', 2.4);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, '#fff14a'); g.addColorStop(0.4, '#ff8c1a');
+      g.addColorStop(0.8, '#ff3860'); g.addColorStop(1, '#c00040');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+      // flame tongues
+      ctx.fillStyle = 'rgba(255,241,74,0.5)';
+      for (let i=0;i<6;i++){
+        const a = (i/6)*Math.PI*2 + t*0.7;
+        const fx = x + Math.cos(a)*r*0.4;
+        const fy = y + Math.sin(a)*r*0.4;
+        ctx.beginPath(); ctx.arc(fx, fy, r*0.18, 0, Math.PI*2); ctx.fill();
+      }
+    },
+  },
+  abyssal: {
+    id:'abyssal', name:'ABYSSAL', rarity:RARITY.epic, price:580,
+    color:'#5588ff', light:'#a3b8ff',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, '#5588ff', 2.2);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, '#a3b8ff'); g.addColorStop(0.5, '#5588ff');
+      g.addColorStop(1, '#1a2060');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+      // bioluminescent dots
+      ctx.fillStyle = '#fff';
+      for (let i=0;i<5;i++){
+        const a = (i/5)*Math.PI*2 + t*0.5;
+        const dist = r*(0.4 + 0.3*Math.sin(t*2+i));
+        ctx.beginPath(); ctx.arc(x+Math.cos(a)*dist, y+Math.sin(a)*dist, r*0.06, 0, Math.PI*2);
+        ctx.fill();
+      }
+    },
+  },
+  void: {
+    id:'void', name:'VOID', rarity:RARITY.legendary, price:1200,
+    color:'#000', light:'#ff2bd6',
+    render(ctx, x, y, r, t) {
+      // outer rim glow
+      paintGlow(ctx, x, y, r, '#ff2bd6', 2.6);
+      // black body
+      const g = ctx.createRadialGradient(x, y, r*0.3, x, y, r);
+      g.addColorStop(0, '#000'); g.addColorStop(0.7, '#1a0a2e');
+      g.addColorStop(1, '#3a1058');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+      // event horizon ring
+      ctx.strokeStyle='#ff2bd6';
+      ctx.lineWidth=Math.max(1.5, r*0.05);
+      ctx.shadowBlur = r*0.3; ctx.shadowColor='#ff2bd6';
+      ctx.beginPath(); ctx.arc(x, y, r*0.85, 0, Math.PI*2); ctx.stroke();
+      ctx.shadowBlur=0;
+      // swirling particles
+      ctx.fillStyle = '#ff2bd6';
+      for (let i=0;i<8;i++){
+        const a = t*1.5 + (i/8)*Math.PI*2;
+        const rr = r * (0.5 + 0.2*Math.cos(t*3+i));
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a)*rr, y + Math.sin(a)*rr, r*0.04, 0, Math.PI*2);
+        ctx.fill();
+      }
+    },
+  },
+  starborn: {
+    id:'starborn', name:'STARBORN', rarity:RARITY.legendary, price:1500,
+    color:'#fff14a', light:'#ffffff',
+    render(ctx, x, y, r, t) {
+      paintGlow(ctx, x, y, r, '#fff14a', 2.8);
+      // golden core
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, '#fff89a');
+      g.addColorStop(0.7, '#ffaa00'); g.addColorStop(1, '#aa6600');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+      // star burst
+      ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1.5, r*0.04);
+      ctx.shadowBlur = r*0.4; ctx.shadowColor='#fff';
+      for (let i=0;i<5;i++){
+        const a = t*0.4 + (i/5)*Math.PI*2;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a)*r*0.3, y + Math.sin(a)*r*0.3);
+        ctx.lineTo(x + Math.cos(a)*r*1.05, y + Math.sin(a)*r*1.05);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    },
+  },
+};
+const SKIN_LIST = Object.values(SKINS);
+
+// ============================================================================
+// SECTION 5 — AUDIO ENGINE (WebAudio-synthesized, zero assets)
+// ============================================================================
+
+const AudioEngine = {
+  ctx: null,
+  master: null, sfxGain: null, musicGain: null,
+  enabled: false,
+  musicOsc: null,
+  musicLfo: null,
+
+  init() {
+    if (this.ctx) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.sfxGain = this.ctx.createGain();
+      this.musicGain = this.ctx.createGain();
+      this.sfxGain.connect(this.master);
+      this.musicGain.connect(this.master);
+      this.master.connect(this.ctx.destination);
+      this.applyVolumes(ProfileStore.data.settings);
+      this.enabled = true;
+    } catch (e) {
+      console.warn('Audio init failed', e);
+    }
+  },
+
+  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+
+  applyVolumes(settings) {
+    if (!this.master) return;
+    this.master.gain.value = settings.masterVolume;
+    this.sfxGain.gain.value = settings.sfxVolume;
+    this.musicGain.gain.value = settings.musicVolume;
+  },
+
+  // ── Helpers ────────────────────────────────────────────────────────
+  _osc(freq, type='sine', dur=0.1, vol=0.3, attack=0.005, decay=0.1) {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.001, t + attack + decay);
+    o.connect(g); g.connect(this.sfxGain);
+    o.start(t); o.stop(t + attack + decay + 0.02);
+  },
+
+  _noise(dur=0.1, vol=0.2, filterFreq=2000) {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    const bufferSize = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+    const buf = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i=0; i<bufferSize; i++) data[i] = Math.random()*2 - 1;
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = filterFreq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(filter); filter.connect(g); g.connect(this.sfxGain);
+    src.start(t); src.stop(t + dur + 0.02);
+  },
+
+  // ── SFX library ────────────────────────────────────────────────────
+  eatFood()   { this._osc(rand(700,900), 'square', 0.06, 0.05, 0.002, 0.06); },
+  eatCell()   {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    [220, 440, 660].forEach((f, i) => {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.12, t + i*0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i*0.02 + 0.18);
+      o.connect(g); g.connect(this.sfxGain);
+      o.start(t + i*0.02); o.stop(t + i*0.02 + 0.2);
+    });
+  },
+  death()     {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(440, t);
+    o.frequency.exponentialRampToValueAtTime(40, t + 0.6);
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+    o.connect(g); g.connect(this.sfxGain);
+    o.start(t); o.stop(t + 0.7);
+    this._noise(0.4, 0.1, 1500);
+  },
+  boost()     { this._osc(rand(380, 440), 'sawtooth', 0.04, 0.04, 0.002, 0.04); },
+  surge()     {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    [110, 165, 220, 330, 440].forEach((f, i) => {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t + i*0.05);
+      g.gain.linearRampToValueAtTime(0.08, t + i*0.05 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i*0.05 + 0.4);
+      o.connect(g); g.connect(this.sfxGain);
+      o.start(t + i*0.05); o.stop(t + i*0.05 + 0.4);
+    });
+  },
+  ui()        { this._osc(880, 'square', 0.03, 0.04, 0.001, 0.03); },
+  uiBig()     {
+    this._osc(523, 'triangle', 0.08, 0.08, 0.002, 0.08);
+    setTimeout(()=>this._osc(784, 'triangle', 0.12, 0.08, 0.002, 0.1), 70);
+  },
+  achievement(){
+    if (!this.enabled) return;
+    [523, 659, 784, 1047].forEach((f,i)=>{
+      setTimeout(()=>this._osc(f, 'triangle', 0.18, 0.1, 0.003, 0.16), i*70);
+    });
+  },
+  purchase()  {
+    [659, 880].forEach((f,i)=>{
+      setTimeout(()=>this._osc(f, 'sine', 0.15, 0.12, 0.003, 0.14), i*80);
+    });
+  },
+  victory()   {
+    [523, 659, 784, 1047, 1319].forEach((f,i)=>{
+      setTimeout(()=>this._osc(f, 'triangle', 0.25, 0.12, 0.005, 0.22), i*120);
+    });
+  },
+
+  // ── Procedural ambient music ──────────────────────────────────────
+  startMusic() {
+    if (!this.enabled || this.musicOsc) return;
+    const t = this.ctx.currentTime;
+    // a soft synthwave pad: two detuned sawtooths + lowpass + slow LFO
+    const o1 = this.ctx.createOscillator();
+    const o2 = this.ctx.createOscillator();
+    o1.type = 'sawtooth'; o2.type = 'sawtooth';
+    o1.frequency.value = 110; o2.frequency.value = 110 * 1.005; // slight detune
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 400;
+    filter.Q.value = 4;
+    // LFO on filter
+    const lfo = this.ctx.createOscillator();
+    const lfoGain = this.ctx.createGain();
+    lfo.type = 'sine'; lfo.frequency.value = 0.15;
+    lfoGain.gain.value = 200;
+    lfo.connect(lfoGain); lfoGain.connect(filter.frequency);
+    const g = this.ctx.createGain();
+    g.gain.value = 0.18;
+    o1.connect(filter); o2.connect(filter);
+    filter.connect(g); g.connect(this.musicGain);
+    o1.start(t); o2.start(t); lfo.start(t);
+    this.musicOsc = { o1, o2, lfo, g };
+  },
+
+  stopMusic() {
+    if (!this.musicOsc) return;
+    const t = this.ctx.currentTime;
+    const { o1, o2, lfo, g } = this.musicOsc;
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    setTimeout(() => {
+      try { o1.stop(); o2.stop(); lfo.stop(); } catch(e){}
+      this.musicOsc = null;
+    }, 600);
+  },
+};
+
+
+// ============================================================================
+// SECTION 6 — ACHIEVEMENTS
+// ----------------------------------------------------------------------------
+// 12 achievements. Each defines a `check(profile, matchResult)` that returns
+// true when unlocked. Called at end of each match.
+// ============================================================================
+
+const ACHIEVEMENTS = [
+  { id:'first_blood',   icon:'✕', name:'FIRST BLOOD',     desc:'Get your first kill',                 check:(p,m)=>p.stats.totalKills >= 1, reward:50 },
+  { id:'survivor',      icon:'◊', name:'SURVIVOR',        desc:'Survive a full 3-minute match',       check:(p,m)=>m && m.survived >= 180, reward:100 },
+  { id:'first_win',     icon:'★', name:'FIRST VICTORY',   desc:'Win a match',                         check:(p,m)=>p.stats.matchesWon >= 1, reward:200 },
+  { id:'big_one',       icon:'●', name:'THE BIG ONE',     desc:'Reach mass 200',                      check:(p,m)=>p.stats.peakMass >= 200, reward:150 },
+  { id:'massive',       icon:'⬢', name:'MASSIVE',         desc:'Reach mass 500',                      check:(p,m)=>p.stats.peakMass >= 500, reward:300 },
+  { id:'kill_5',        icon:'⚔', name:'KILLSTREAK',      desc:'Get 5 kills in one match',            check:(p,m)=>m && m.kills >= 5, reward:200 },
+  { id:'surge_5',       icon:'⚡', name:'SURGE RIDER',     desc:'Survive 5 SURGE events',              check:(p,m)=>p.stats.surgesSurvived >= 5, reward:100 },
+  { id:'surge_20',      icon:'⚡', name:'CHAOS LORD',      desc:'Survive 20 SURGE events',             check:(p,m)=>p.stats.surgesSurvived >= 20, reward:250 },
+  { id:'food_500',      icon:'•', name:'GLUTTON',         desc:'Eat 500 food pellets total',          check:(p,m)=>p.stats.foodEaten >= 500, reward:100 },
+  { id:'matches_10',    icon:'◆', name:'REGULAR',         desc:'Play 10 matches',                     check:(p,m)=>p.stats.matchesPlayed >= 10, reward:150 },
+  { id:'win_5',         icon:'♛', name:'CHAMPION',        desc:'Win 5 matches',                       check:(p,m)=>p.stats.matchesWon >= 5, reward:500 },
+  { id:'wealthy',       icon:'❖', name:'WEALTHY',         desc:'Accumulate 2000 Glimmers (lifetime)', check:(p,m)=>p._lifetimeGlimmers >= 2000, reward:300 },
+];
+
+const Achievements = {
+  checkAll(matchResult) {
+    const unlocked = [];
+    const p = ProfileStore.data;
+    for (const a of ACHIEVEMENTS) {
+      const status = p.achievements[a.id] || { unlocked: false };
+      if (status.unlocked) continue;
+      if (a.check(p, matchResult)) {
+        p.achievements[a.id] = { unlocked: true, unlockedAt: Date.now() };
+        ProfileStore.addGlimmers(a.reward);
+        unlocked.push(a);
+      }
+    }
+    ProfileStore.save();
+    return unlocked;
+  },
+  isUnlocked(id) { return !!(ProfileStore.data.achievements[id]?.unlocked); },
+};
+
+// ============================================================================
+// SECTION 7 — DAILY CHALLENGE
+// ----------------------------------------------------------------------------
+// Rotates daily (by calendar date). Pseudo-deterministic so same day = same
+// challenge across reloads. Progress persists across matches in same day.
+// ============================================================================
+
+const DAILY_CHALLENGES = [
+  { id:'kills_3',   text:'Get 3 kills in a single match',   target:3,    reward:150, track:'kills_in_match' },
+  { id:'mass_100',  text:'Reach mass 100 in a match',       target:100,  reward:120, track:'peak_mass_match' },
+  { id:'mass_250',  text:'Reach mass 250 in a match',       target:250,  reward:250, track:'peak_mass_match' },
+  { id:'food_100',  text:'Eat 100 food pellets total today',target:100,  reward:120, track:'food_today' },
+  { id:'win',       text:'Win a match',                     target:1,    reward:300, track:'wins_today' },
+  { id:'matches_3', text:'Complete 3 matches',              target:3,    reward:100, track:'matches_today' },
+  { id:'surge_3',   text:'Survive 3 SURGE events',          target:3,    reward:150, track:'surges_today' },
+];
+
+const DailyChallenge = {
+  current: null,
+
+  todayProgress: { food_today: 0, wins_today: 0, matches_today: 0, surges_today: 0 },
+
+  refresh() {
+    const p = ProfileStore.data;
+    const today = todayKey();
+    if (p.daily.date !== today) {
+      // pick deterministic challenge for the day
+      const seed = this.hashDate(today);
+      const challenge = DAILY_CHALLENGES[seed % DAILY_CHALLENGES.length];
+      p.daily = { date: today, challengeId: challenge.id, progress: 0, completed: false, claimed: false };
+      this.todayProgress = { food_today: 0, wins_today: 0, matches_today: 0, surges_today: 0 };
+      ProfileStore.save();
+    }
+    this.current = DAILY_CHALLENGES.find(c => c.id === p.daily.challengeId);
+    return this.current;
+  },
+
+  hashDate(s) {
+    let h = 0;
+    for (let i=0;i<s.length;i++) h = ((h<<5)-h + s.charCodeAt(i))|0;
+    return Math.abs(h);
+  },
+
+  // called at end of match
+  onMatchEnd(matchResult) {
+    const p = ProfileStore.data;
+    const c = this.current;
+    if (!c || p.daily.completed) return null;
+    this.todayProgress.matches_today += 1;
+    if (matchResult.won) this.todayProgress.wins_today += 1;
+    this.todayProgress.food_today += matchResult.foodEaten || 0;
+    this.todayProgress.surges_today += matchResult.surgesSurvived || 0;
+
+    let progress = p.daily.progress;
+    switch (c.track) {
+      case 'kills_in_match':    progress = Math.max(progress, matchResult.kills); break;
+      case 'peak_mass_match':   progress = Math.max(progress, matchResult.peakMass); break;
+      case 'food_today':        progress = this.todayProgress.food_today; break;
+      case 'wins_today':        progress = this.todayProgress.wins_today; break;
+      case 'matches_today':     progress = this.todayProgress.matches_today; break;
+      case 'surges_today':      progress = this.todayProgress.surges_today; break;
+    }
+    p.daily.progress = progress;
+    let justCompleted = false;
+    if (!p.daily.completed && progress >= c.target) {
+      p.daily.completed = true;
+      p.daily.claimed = true;
+      ProfileStore.addGlimmers(c.reward);
+      justCompleted = true;
+    }
+    ProfileStore.save();
+    return justCompleted ? c : null;
+  },
+};
+
+// ============================================================================
+// SECTION 8 — GAME CONFIG & SURGE DEFINITIONS
 // ============================================================================
 
 const CFG = {
@@ -228,21 +1155,19 @@ const CFG = {
   PLAYER_COUNT: 12,
   FOOD_COUNT: 350,
   FOOD_MASS: 1,
-  HAZARD_COUNT: 6,
   START_MASS: 10,
   MAX_MASS: 2000,
-  EAT_RATIO: 1.20,       // must be 20% bigger to eat
-  BOOST_COST: 0.04,      // % of mass per tick while boosting (was: too high)
+  EAT_RATIO: 1.20,
+  BOOST_COST: 0.04,
   BOOST_MIN_MASS: 15,
   BOOST_MULT: 1.95,
-  BOOST_RECHARGE: 0.4,   // per second
+  BOOST_RECHARGE: 0.4,
   FRICTION: 0.94,
   MATCH_SECONDS: 180,
   SURGE_INTERVAL: 30,
   CAM_LERP: 0.08,
 };
 
-// Friendly cyberpunk callsigns for bots
 const BOT_NAMES = [
   'NEONRIDER','GLITCH','VOLT','CIRCUIT','CYPHER','NULL','PIXEL','SYNTHWAVE',
   'GHOST','RAVEN','LATTICE','OVERCLOCK','VIRAL','ZERO','DECRYPT','PHASE',
@@ -256,163 +1181,146 @@ const BOT_PALETTE = [
   ['#5588ff','#a3b8ff'], ['#ffaa00','#ffd166'], ['#00ffaa','#66ffd1']
 ];
 
-const PLAYER_PALETTE = ['#22f0ff','#7df8ff']; // player is always cyan
-
-// ============================================================================
-// UTIL
-// ============================================================================
-
-const rand = (a,b) => a + Math.random()*(b-a);
-const randi = (a,b) => Math.floor(rand(a,b));
-const choose = arr => arr[randi(0,arr.length)];
-const clamp = (v,a,b) => v<a?a:v>b?b:v;
-const lerp = (a,b,t) => a+(b-a)*t;
-const dist2 = (a,b) => { const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; };
-const dist = (a,b) => Math.sqrt(dist2(a,b));
-const angTo = (a,b) => Math.atan2(b.y-a.y, b.x-a.x);
 const massToRadius = m => Math.sqrt(m*40);
-const massToSpeed = m => 4.5 * Math.pow(20/(m+15), 0.32); // smaller = faster
+const massToSpeed  = m => 4.5 * Math.pow(20/(m+15), 0.32);
 
-// ============================================================================
-// SURGE EVENTS — the core viral hook.
-// Each event is a self-contained set of hooks. The doc proposes 35; here we
-// implement 7 strong ones that span the gameplay space.
-// ============================================================================
-
+// ----- SURGE event registry -----
 const SURGES = {
   speed_doubled: {
-    name: 'OVERCLOCK',
-    desc: 'All cells move at 2× speed',
-    color: '#fff14a',
-    grade: 'rgba(255,241,74,0.15)',
-    duration: 12,
-    apply: (s) => { s.surgeMods.speedMult = 2.0; },
-    clear: (s) => { s.surgeMods.speedMult = 1.0; },
+    name:'OVERCLOCK', desc:'All cells move at 2× speed', color:'#fff14a',
+    grade:'rgba(255,241,74,0.15)', duration:12,
+    apply:(s)=>{ s.surgeMods.speedMult = 2.0; },
+    clear:(s)=>{ s.surgeMods.speedMult = 1.0; },
   },
   shrink_all: {
-    name: 'PURGE',
-    desc: 'Every cell loses 30% of its mass',
-    color: '#ff3860',
-    grade: 'rgba(255,56,96,0.18)',
-    duration: 8,
-    apply: (s) => {
+    name:'PURGE', desc:'Every cell loses 30% of its mass', color:'#ff3860',
+    grade:'rgba(255,56,96,0.18)', duration:8,
+    apply:(s)=>{
       for (const e of s.entities) {
-        if (e.kind === 'cell' && e.alive) {
+        if (e.kind==='cell' && e.alive) {
           e.mass = Math.max(CFG.START_MASS, e.mass * 0.7);
-          spawnBurst(s, e.x, e.y, e.color, 14);
+          spawnBurst(s, e.x, e.y, e.color || '#ff3860', 14);
         }
       }
     },
-    clear: () => {},
+    clear:()=>{},
   },
   reverse_controls: {
-    name: 'INVERSION',
-    desc: 'Movement controls are reversed',
-    color: '#a070ff',
-    grade: 'rgba(160,112,255,0.2)',
-    duration: 10,
-    apply: (s) => { s.surgeMods.invert = true; },
-    clear: (s) => { s.surgeMods.invert = false; },
+    name:'INVERSION', desc:'Movement controls are reversed', color:'#a070ff',
+    grade:'rgba(160,112,255,0.2)', duration:10,
+    apply:(s)=>{ s.surgeMods.invert = true; },
+    clear:(s)=>{ s.surgeMods.invert = false; },
   },
   food_rain: {
-    name: 'OVERFLOW',
-    desc: 'Food spawns at 5× the normal rate',
-    color: '#39ff88',
-    grade: 'rgba(57,255,136,0.15)',
-    duration: 12,
-    apply: (s) => { s.surgeMods.foodMult = 5; },
-    clear: (s) => { s.surgeMods.foodMult = 1; },
+    name:'OVERFLOW', desc:'Food spawns at 5× the normal rate', color:'#39ff88',
+    grade:'rgba(57,255,136,0.15)', duration:12,
+    apply:(s)=>{ s.surgeMods.foodMult = 5; },
+    clear:(s)=>{ s.surgeMods.foodMult = 1; },
   },
   magnetism: {
-    name: 'ATTRACTOR',
-    desc: 'All food is pulled toward you',
-    color: '#22f0ff',
-    grade: 'rgba(34,240,255,0.15)',
-    duration: 8,
-    apply: (s) => { s.surgeMods.magnetism = true; },
-    clear: (s) => { s.surgeMods.magnetism = false; },
+    name:'ATTRACTOR', desc:'All food is pulled toward you', color:'#22f0ff',
+    grade:'rgba(34,240,255,0.15)', duration:8,
+    apply:(s)=>{ s.surgeMods.magnetism = true; },
+    clear:(s)=>{ s.surgeMods.magnetism = false; },
   },
   zero_g: {
-    name: 'NULL GRAVITY',
-    desc: 'Friction removed — momentum is permanent',
-    color: '#ff8c1a',
-    grade: 'rgba(255,140,26,0.15)',
-    duration: 10,
-    apply: (s) => { s.surgeMods.friction = 0.998; },
-    clear: (s) => { s.surgeMods.friction = CFG.FRICTION; },
+    name:'NULL GRAVITY', desc:'Friction removed — momentum is permanent', color:'#ff8c1a',
+    grade:'rgba(255,140,26,0.15)', duration:10,
+    apply:(s)=>{ s.surgeMods.friction = 0.998; },
+    clear:(s)=>{ s.surgeMods.friction = CFG.FRICTION; },
   },
   blackout: {
-    name: 'BLACKOUT',
-    desc: 'Vision reduced to a tiny circle',
-    color: '#ff2bd6',
-    grade: 'rgba(0,0,0,0.0)',
-    duration: 8,
-    apply: (s) => { s.surgeMods.blackout = true; },
-    clear: (s) => { s.surgeMods.blackout = false; },
+    name:'BLACKOUT', desc:'Vision reduced to a tiny circle', color:'#ff2bd6',
+    grade:'rgba(0,0,0,0.0)', duration:8,
+    apply:(s)=>{ s.surgeMods.blackout = true; },
+    clear:(s)=>{ s.surgeMods.blackout = false; },
+  },
+  // ─── 3 new SURGES added in v0.2 ──────────────────────────────
+  tsunami: {
+    name:'TSUNAMI', desc:'A wave sweeps across the arena', color:'#5588ff',
+    grade:'rgba(85,136,255,0.18)', duration:6,
+    apply:(s)=>{
+      s.surgeMods.tsunami = {
+        x: -200, dir: rand(-0.3, 0.3), speed: (CFG.WORLD.w + 400)/6,
+        ang: 0,
+      };
+      // pick angle: left->right, right->left, top->bottom, bottom->top
+      const opts = [
+        { from:{x:-200,y:CFG.WORLD.h/2}, vel:{x:1,y:0} },
+        { from:{x:CFG.WORLD.w+200,y:CFG.WORLD.h/2}, vel:{x:-1,y:0} },
+        { from:{x:CFG.WORLD.w/2,y:-200}, vel:{x:0,y:1} },
+        { from:{x:CFG.WORLD.w/2,y:CFG.WORLD.h+200}, vel:{x:0,y:-1} },
+      ];
+      const opt = choose(opts);
+      s.surgeMods.tsunami = { x: opt.from.x, y: opt.from.y, vx: opt.vel.x, vy: opt.vel.y,
+                              speed: (CFG.WORLD.w + 400)/6, width: 600 };
+    },
+    clear:(s)=>{ s.surgeMods.tsunami = null; },
+  },
+  black_hole: {
+    name:'BLACK HOLE', desc:'A gravity well at the center pulls everything in', color:'#a070ff',
+    grade:'rgba(20,5,40,0.35)', duration:10,
+    apply:(s)=>{
+      s.surgeMods.blackHole = { x:CFG.WORLD.w/2, y:CFG.WORLD.h/2, strength: 350 };
+    },
+    clear:(s)=>{ s.surgeMods.blackHole = null; },
+  },
+  ghost_mode: {
+    name:'GHOST MODE', desc:'All cells turn semi-transparent', color:'#22f0ff',
+    grade:'rgba(34,240,255,0.1)', duration:10,
+    apply:(s)=>{ s.surgeMods.ghost = true; },
+    clear:(s)=>{ s.surgeMods.ghost = false; },
   },
 };
 const SURGE_KEYS = Object.keys(SURGES);
 
+
 // ============================================================================
-// STATE
+// SECTION 9 — GAME STATE & ENTITIES
 // ============================================================================
 
 function createState() {
   return {
-    entities: [],     // cells + food + particles
-    player: null,
+    entities: [], player: null,
     cam: { x: CFG.WORLD.w/2, y: CFG.WORLD.h/2, zoom: 1 },
-    time: 0,
-    matchTime: CFG.MATCH_SECONDS,
-    nextSurgeIn: CFG.SURGE_INTERVAL,
-    activeSurge: null,
-    surgeTimer: 0,
+    time: 0, matchTime: CFG.MATCH_SECONDS,
+    nextSurgeIn: CFG.SURGE_INTERVAL, activeSurge: null, surgeTimer: 0,
     surgeMods: {
-      speedMult: 1, invert: false, foodMult: 1, magnetism: false,
-      friction: CFG.FRICTION, blackout: false
+      speedMult:1, invert:false, foodMult:1, magnetism:false,
+      friction:CFG.FRICTION, blackout:false,
+      tsunami:null, blackHole:null, ghost:false,
     },
-    kills: 0,
+    kills: 0, foodEaten: 0, surgesSurvived: 0,
     peakMass: CFG.START_MASS,
-    over: false,
-    shake: 0,
-    hitstop: 0,
-    surgeHistory: [], // prevent repeats
-    notifs: [],
-    killfeed: [],
+    over: false, shake: 0, hitstop: 0,
+    surgeHistory: [], killfeed: [],
     nextId: 1,
+    matchResult: null,
+    replayBuffer: [],  // for kill cam: snapshots of last 3s
+    replaying: false,
   };
 }
-
 let S = createState();
-
-// ============================================================================
-// ENTITIES
-// ============================================================================
 
 function newCell(state, opts) {
   return {
-    id: state.nextId++,
-    kind: 'cell',
+    id: state.nextId++, kind:'cell',
     isBot: opts.isBot !== false,
     name: opts.name,
     x: opts.x ?? rand(200, CFG.WORLD.w-200),
     y: opts.y ?? rand(200, CFG.WORLD.h-200),
-    vx: 0, vy: 0,
+    vx:0, vy:0,
     mass: opts.mass ?? CFG.START_MASS,
-    color: opts.color[0],
-    colorLight: opts.color[1],
+    color: opts.color?.[0] ?? '#22f0ff',
+    colorLight: opts.color?.[1] ?? '#7df8ff',
+    skinId: opts.skinId || null,  // when set, use SKINS[skinId].render
     alive: true,
-    boost: 1.0,
-    boosting: false,
+    boost: 1.0, boosting: false,
     targetX: 0, targetY: 0,
-    // bot ai
     personality: opts.personality ?? choose(['aggressive','cautious','opportunist','wanderer']),
-    aiTarget: null,
-    aiCooldown: 0,
-    aiWanderAng: rand(0, Math.PI*2),
-    // visual
+    aiTarget: null, aiCooldown: 0, aiWanderAng: rand(0, Math.PI*2),
     wobble: rand(0, Math.PI*2),
-    eyeOffset: { x: 0, y: 0 },
+    eyeOffset: { x:0, y:0 },
     kills: 0,
     spawnedAt: state.time,
   };
@@ -420,36 +1328,29 @@ function newCell(state, opts) {
 
 function newFood(state, x, y) {
   return {
-    id: state.nextId++,
-    kind: 'food',
+    id: state.nextId++, kind:'food',
     x: x ?? rand(0, CFG.WORLD.w),
     y: y ?? rand(0, CFG.WORLD.h),
-    vx: 0, vy: 0,
-    mass: CFG.FOOD_MASS,
+    vx:0, vy:0, mass: CFG.FOOD_MASS,
     color: choose(['#22f0ff','#ff2bd6','#fff14a','#39ff88','#a070ff','#ff8c1a']),
-    pulse: rand(0, Math.PI*2),
-    alive: true,
+    pulse: rand(0, Math.PI*2), alive: true,
   };
 }
 
 function newParticle(state, x, y, color, opts={}) {
   return {
-    id: state.nextId++,
-    kind: 'particle',
+    id: state.nextId++, kind:'particle',
     x, y,
     vx: opts.vx ?? rand(-3,3),
     vy: opts.vy ?? rand(-3,3),
-    color,
-    life: opts.life ?? rand(0.4, 1.0),
-    maxLife: 0,
-    size: opts.size ?? rand(2, 5),
-    alive: true,
+    color, life: opts.life ?? rand(0.4, 1.0), maxLife: 0,
+    size: opts.size ?? rand(2, 5), alive: true,
   };
 }
 
 function spawnBurst(state, x, y, color, count=12) {
-  for (let i=0;i<count;i++) {
-    const ang = (i/count) * Math.PI * 2 + rand(-0.3,0.3);
+  for (let i=0; i<count; i++) {
+    const ang = (i/count) * Math.PI*2 + rand(-0.3, 0.3);
     const spd = rand(2, 7);
     const p = newParticle(state, x, y, color, {
       vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
@@ -461,37 +1362,35 @@ function spawnBurst(state, x, y, color, count=12) {
 }
 
 // ============================================================================
-// INIT
+// SECTION 10 — MATCH INIT
 // ============================================================================
 
 function initMatch(playerName) {
   S = createState();
-  // Helper: find a spawn point that isn't too close to existing cells.
   const findSpawn = () => {
-    for (let attempt = 0; attempt < 50; attempt++) {
+    for (let i=0; i<50; i++) {
       const x = rand(300, CFG.WORLD.w - 300);
       const y = rand(300, CFG.WORLD.h - 300);
       let ok = true;
       for (const e of S.entities) {
-        if (e.kind === 'cell' && dist({x,y}, e) < 400) { ok = false; break; }
+        if (e.kind==='cell' && dist({x,y}, e) < 400) { ok = false; break; }
       }
       if (ok) return { x, y };
     }
     return { x: rand(300, CFG.WORLD.w-300), y: rand(300, CFG.WORLD.h-300) };
   };
 
-  // player
+  const equippedSkinId = ProfileStore.data.equipped || 'default';
+  const skin = SKINS[equippedSkinId] || SKINS.default;
   const ps = findSpawn();
   S.player = newCell(S, {
-    isBot: false,
-    name: playerName.toUpperCase() || 'YOU',
-    color: PLAYER_PALETTE,
-    x: ps.x,
-    y: ps.y,
-    personality: 'human',
+    isBot:false, name:(playerName||'YOU').toUpperCase(),
+    color:[skin.color, skin.light],
+    skinId: equippedSkinId,
+    x:ps.x, y:ps.y, personality:'human',
   });
   S.entities.push(S.player);
-  // bots
+
   const botPool = [...BOT_NAMES].sort(()=>Math.random()-0.5);
   for (let i=0; i<CFG.PLAYER_COUNT-1; i++) {
     const bs = findSpawn();
@@ -499,25 +1398,18 @@ function initMatch(playerName) {
       name: botPool[i % botPool.length],
       color: BOT_PALETTE[i % BOT_PALETTE.length],
       mass: CFG.START_MASS + rand(-1, 3),
-      x: bs.x, y: bs.y,
+      x:bs.x, y:bs.y,
     }));
   }
-  // food
   for (let i=0; i<CFG.FOOD_COUNT; i++) S.entities.push(newFood(S));
-  // camera
-  S.cam.x = S.player.x;
-  S.cam.y = S.player.y;
+  S.cam.x = S.player.x; S.cam.y = S.player.y;
 }
 
 // ============================================================================
-// INPUT
+// SECTION 11 — INPUT
 // ============================================================================
 
-const input = {
-  mouseX: window.innerWidth/2,
-  mouseY: window.innerHeight/2,
-  boostHeld: false,
-};
+const input = { mouseX: window.innerWidth/2, mouseY: window.innerHeight/2, boostHeld: false };
 
 window.addEventListener('mousemove', e => {
   input.mouseX = e.clientX;
@@ -527,11 +1419,15 @@ window.addEventListener('mousedown', e => { if (e.button===0) input.boostHeld = 
 window.addEventListener('mouseup',   e => { if (e.button===0) input.boostHeld = false; });
 window.addEventListener('keydown', e => {
   if (e.code === 'Space') { input.boostHeld = true; e.preventDefault(); }
+  if (e.code === 'Escape') {
+    if (!S.over && S.player?.alive) {
+      // pause = go to menu (drop the match)
+      // For simplicity: ESC during match = forfeit
+      gameOver('Match abandoned', false);
+    }
+  }
 });
-window.addEventListener('keyup', e => {
-  if (e.code === 'Space') input.boostHeld = false;
-});
-// touch (mobile-friendly)
+window.addEventListener('keyup', e => { if (e.code === 'Space') input.boostHeld = false; });
 window.addEventListener('touchstart', e => {
   if (e.touches.length) {
     input.mouseX = e.touches[0].clientX;
@@ -539,93 +1435,73 @@ window.addEventListener('touchstart', e => {
     input.boostHeld = e.touches.length >= 2;
   }
   e.preventDefault();
-},{passive:false});
+}, {passive:false});
 window.addEventListener('touchmove', e => {
   if (e.touches.length) {
     input.mouseX = e.touches[0].clientX;
     input.mouseY = e.touches[0].clientY;
   }
   e.preventDefault();
-},{passive:false});
+}, {passive:false});
 window.addEventListener('touchend', () => { input.boostHeld = false; });
 
 // ============================================================================
-// BOT AI
+// SECTION 12 — BOT AI
 // ============================================================================
 
 function updateBotAI(s, bot, dt) {
   bot.aiCooldown -= dt;
   if (bot.aiCooldown > 0) return;
-
-  // scan environment
   let nearestFood = null, nearestFoodD = Infinity;
   let biggestThreat = null, biggestThreatD = Infinity;
   let easyPrey = null, easyPreyScore = -Infinity;
-
   for (const e of s.entities) {
     if (!e.alive || e === bot) continue;
-    const d2 = dist2(bot, e);
-    if (e.kind === 'food' && d2 < 600*600) {
-      if (d2 < nearestFoodD) { nearestFoodD = d2; nearestFood = e; }
+    const d2v = dist2(bot, e);
+    if (e.kind === 'food' && d2v < 600*600) {
+      if (d2v < nearestFoodD) { nearestFoodD = d2v; nearestFood = e; }
     } else if (e.kind === 'cell') {
-      if (d2 > 800*800) continue;
+      if (d2v > 800*800) continue;
       const ratio = e.mass / bot.mass;
-      if (ratio > CFG.EAT_RATIO && d2 < biggestThreatD) {
-        biggestThreatD = d2; biggestThreat = e;
+      if (ratio > CFG.EAT_RATIO && d2v < biggestThreatD) {
+        biggestThreatD = d2v; biggestThreat = e;
       } else if (ratio * CFG.EAT_RATIO < 1) {
-        // we can eat them
-        const score = e.mass / (Math.sqrt(d2)+1);
+        const score = e.mass / (Math.sqrt(d2v)+1);
         if (score > easyPreyScore) { easyPreyScore = score; easyPrey = e; }
       }
     }
   }
-
-  // personality-driven decision
   let tx = bot.x, ty = bot.y, boost = false;
   const p = bot.personality;
-
-  // FLEE — always priority if threat is very close
   if (biggestThreat && Math.sqrt(biggestThreatD) < massToRadius(biggestThreat.mass) + 200) {
-    const ang = angTo(biggestThreat, bot); // away
-    tx = bot.x + Math.cos(ang)*500;
-    ty = bot.y + Math.sin(ang)*500;
+    const ang = angTo(biggestThreat, bot);
+    tx = bot.x + Math.cos(ang)*500; ty = bot.y + Math.sin(ang)*500;
     boost = Math.sqrt(biggestThreatD) < massToRadius(biggestThreat.mass) + 100 && bot.boost > 0.3;
-  }
-  // HUNT — go for prey if appropriate
-  else if (easyPrey && (p === 'aggressive' || (p === 'opportunist' && Math.sqrt(easyPreyScore < 0.1 ? 999999 : 1/easyPreyScore) < 400))) {
+  } else if (easyPrey && (p === 'aggressive' || p === 'opportunist')) {
     tx = easyPrey.x; ty = easyPrey.y;
     boost = p === 'aggressive' && bot.boost > 0.5 && dist(bot, easyPrey) < 300;
-  }
-  // EAT FOOD
-  else if (nearestFood) {
+  } else if (nearestFood) {
     tx = nearestFood.x; ty = nearestFood.y;
-  }
-  // WANDER
-  else {
+  } else {
     bot.aiWanderAng += rand(-0.2, 0.2);
-    tx = bot.x + Math.cos(bot.aiWanderAng) * 300;
-    ty = bot.y + Math.sin(bot.aiWanderAng) * 300;
+    tx = bot.x + Math.cos(bot.aiWanderAng)*300;
+    ty = bot.y + Math.sin(bot.aiWanderAng)*300;
   }
-
-  // keep inside world
   tx = clamp(tx, 100, CFG.WORLD.w-100);
   ty = clamp(ty, 100, CFG.WORLD.h-100);
-
   bot.targetX = tx; bot.targetY = ty;
   bot.boosting = boost && bot.mass > CFG.BOOST_MIN_MASS && bot.boost > 0.1;
   bot.aiCooldown = rand(0.08, 0.2);
 }
 
+
 // ============================================================================
-// SIMULATION TICK (fixed timestep)
+// SECTION 13 — SIM TICK
 // ============================================================================
 
 function tick(dt) {
   if (S.over) return;
-
-  // hitstop — pause sim briefly on big eats
   if (S.hitstop > 0) { S.hitstop -= dt; return; }
-
   S.time += dt;
   S.matchTime -= dt;
 
@@ -634,6 +1510,8 @@ function tick(dt) {
     S.surgeTimer -= dt;
     if (S.surgeTimer <= 0) {
       SURGES[S.activeSurge].clear(S);
+      // count survival
+      if (S.player.alive) S.surgesSurvived++;
       S.activeSurge = null;
       setGrade('rgba(0,0,0,0)', 0);
     }
@@ -642,56 +1520,80 @@ function tick(dt) {
     if (S.nextSurgeIn <= 0) triggerSurge();
   }
 
-  // player input -> target
-  const p = S.player;
-  if (p.alive) {
-    const cx = canvas.width/2;
-    const cy = canvas.height/2;
-    let dx = input.mouseX - cx;
-    let dy = input.mouseY - cy;
-    if (S.surgeMods.invert) { dx = -dx; dy = -dy; }
-    p.targetX = p.x + dx;
-    p.targetY = p.y + dy;
-    p.boosting = input.boostHeld && p.mass > CFG.BOOST_MIN_MASS && p.boost > 0.05;
+  // tsunami advance
+  if (S.surgeMods.tsunami) {
+    const ts = S.surgeMods.tsunami;
+    ts.x += ts.vx * ts.speed * dt;
+    ts.y += ts.vy * ts.speed * dt;
   }
 
-  // boost recharge / drain
+  // player input
+  const p = S.player;
+  if (p.alive) {
+    const cx = canvas.width/(2*(window.devicePixelRatio||1));
+    const cy = canvas.height/(2*(window.devicePixelRatio||1));
+    let dx = (input.mouseX - cx) * (ProfileStore.data.settings.sensitivity || 1);
+    let dy = (input.mouseY - cy) * (ProfileStore.data.settings.sensitivity || 1);
+    if (S.surgeMods.invert) { dx = -dx; dy = -dy; }
+    p.targetX = p.x + dx; p.targetY = p.y + dy;
+    p.boosting = input.boostHeld && p.mass > CFG.BOOST_MIN_MASS && p.boost > 0.05;
+    if (p.boosting && Math.random() < 0.08) AudioEngine.boost();
+  }
+
+  // boost meter
   for (const e of S.entities) {
     if (e.kind !== 'cell' || !e.alive) continue;
     if (e.boosting) {
-      e.boost = Math.max(0, e.boost - dt * 1.2);
+      e.boost = Math.max(0, e.boost - dt*1.2);
       e.mass = Math.max(CFG.START_MASS, e.mass * (1 - CFG.BOOST_COST * dt * 60));
       if (e.boost <= 0) e.boosting = false;
     } else {
-      e.boost = Math.min(1, e.boost + dt * CFG.BOOST_RECHARGE);
+      e.boost = Math.min(1, e.boost + dt*CFG.BOOST_RECHARGE);
     }
   }
 
-  // update cells
+  // movement
   for (const e of S.entities) {
     if (e.kind === 'cell' && e.alive) {
       if (e.isBot) updateBotAI(S, e, dt);
       const ang = angTo(e, { x:e.targetX, y:e.targetY });
       const baseSpeed = massToSpeed(e.mass) * S.surgeMods.speedMult;
       const speed = baseSpeed * (e.boosting ? CFG.BOOST_MULT : 1);
-      e.vx += Math.cos(ang) * speed * dt * 60 * 0.18;
-      e.vy += Math.sin(ang) * speed * dt * 60 * 0.18;
-      e.vx *= S.surgeMods.friction;
-      e.vy *= S.surgeMods.friction;
-      e.x += e.vx;
-      e.y += e.vy;
-      // world bounds (bounce softly)
+      e.vx += Math.cos(ang)*speed*dt*60*0.18;
+      e.vy += Math.sin(ang)*speed*dt*60*0.18;
+      // black hole pull
+      if (S.surgeMods.blackHole) {
+        const bh = S.surgeMods.blackHole;
+        const ad2 = (e.x-bh.x)*(e.x-bh.x) + (e.y-bh.y)*(e.y-bh.y);
+        if (ad2 > 100) {
+          const a = Math.atan2(bh.y-e.y, bh.x-e.x);
+          const pull = bh.strength / Math.sqrt(ad2);
+          e.vx += Math.cos(a)*pull*dt;
+          e.vy += Math.sin(a)*pull*dt;
+        }
+      }
+      // tsunami push
+      if (S.surgeMods.tsunami) {
+        const ts = S.surgeMods.tsunami;
+        // distance from line perpendicular to wave direction passing through ts
+        // simplified: project (e - ts) onto velocity vector
+        const px = (e.x - ts.x)*ts.vx + (e.y - ts.y)*ts.vy;
+        if (Math.abs(px) < ts.width/2) {
+          e.vx += ts.vx * 8 * dt * 60;
+          e.vy += ts.vy * 8 * dt * 60;
+        }
+      }
+      e.vx *= S.surgeMods.friction; e.vy *= S.surgeMods.friction;
+      e.x += e.vx; e.y += e.vy;
       const r = massToRadius(e.mass);
       if (e.x < r) { e.x = r; e.vx = Math.abs(e.vx)*0.5; }
-      if (e.x > CFG.WORLD.w - r) { e.x = CFG.WORLD.w - r; e.vx = -Math.abs(e.vx)*0.5; }
+      if (e.x > CFG.WORLD.w-r) { e.x = CFG.WORLD.w-r; e.vx = -Math.abs(e.vx)*0.5; }
       if (e.y < r) { e.y = r; e.vy = Math.abs(e.vy)*0.5; }
-      if (e.y > CFG.WORLD.h - r) { e.y = CFG.WORLD.h - r; e.vy = -Math.abs(e.vy)*0.5; }
-      // visual wobble
-      e.wobble += dt * (4 + e.boosting*4);
-      const tang = { x: Math.cos(ang), y: Math.sin(ang) };
+      if (e.y > CFG.WORLD.h-r) { e.y = CFG.WORLD.h-r; e.vy = -Math.abs(e.vy)*0.5; }
+      e.wobble += dt * (4 + (e.boosting?4:0));
+      const tang = { x:Math.cos(ang), y:Math.sin(ang) };
       e.eyeOffset.x = lerp(e.eyeOffset.x, tang.x*0.3, dt*8);
       e.eyeOffset.y = lerp(e.eyeOffset.y, tang.y*0.3, dt*8);
-      // track peak mass
       if (e === S.player && e.mass > S.peakMass) S.peakMass = e.mass;
     }
     else if (e.kind === 'particle') {
@@ -704,58 +1606,52 @@ function tick(dt) {
       const d = dist(e, S.player);
       if (d < 400) {
         const ang = angTo(e, S.player);
-        e.x += Math.cos(ang) * (200 / Math.max(d, 20)) * dt * 60;
-        e.y += Math.sin(ang) * (200 / Math.max(d, 20)) * dt * 60;
+        e.x += Math.cos(ang)*(200/Math.max(d,20))*dt*60;
+        e.y += Math.sin(ang)*(200/Math.max(d,20))*dt*60;
       }
     }
   }
 
-  // collisions: cells vs food, cells vs cells
-  // (n^2 is fine at this scale; spatial hash later)
+  // collisions
   const cells = S.entities.filter(e => e.kind==='cell' && e.alive);
   const foods = S.entities.filter(e => e.kind==='food' && e.alive);
 
   for (const c of cells) {
     const cr = massToRadius(c.mass);
-    // food
     for (const f of foods) {
       if (!f.alive) continue;
-      const d2 = dist2(c, f);
-      if (d2 < cr*cr) {
+      if (dist2(c, f) < cr*cr) {
         f.alive = false;
         c.mass = Math.min(CFG.MAX_MASS, c.mass + f.mass);
         if (c === S.player) {
-          // tiny shake
+          S.foodEaten++;
           spawnBurst(S, f.x, f.y, f.color, 3);
+          if (Math.random() < 0.5) AudioEngine.eatFood();
         }
       }
     }
-    // cells
     for (const o of cells) {
       if (o === c || !o.alive || !c.alive) continue;
-      const d2 = dist2(c, o);
+      const d2v = dist2(c, o);
       const or = massToRadius(o.mass);
-      // overlap threshold = bigger must cover most of smaller
-      if (d2 < (cr - or*0.4)*(cr - or*0.4) && c.mass > o.mass * CFG.EAT_RATIO) {
-        // spawn invincibility — player gets 3s grace at match start
+      if (d2v < (cr - or*0.4)*(cr - or*0.4) && c.mass > o.mass * CFG.EAT_RATIO) {
         if (!o.isBot && (S.time - o.spawnedAt) < 3.0) continue;
-        // c eats o
         o.alive = false;
-        c.mass = Math.min(CFG.MAX_MASS, c.mass + o.mass * 0.85);
+        c.mass = Math.min(CFG.MAX_MASS, c.mass + o.mass*0.85);
         c.kills++;
         spawnBurst(S, o.x, o.y, o.color, 28);
-        S.shake = Math.max(S.shake, Math.min(o.mass / 50, 18));
+        S.shake = Math.max(S.shake, Math.min(o.mass/50, 18));
         S.hitstop = Math.min(0.06 + o.mass/800, 0.16);
-        // notifications
         if (c === S.player) {
           S.kills++;
           pushNotif(`✕ ${o.name}`, 'kill');
+          AudioEngine.eatCell();
         } else if (o === S.player) {
           pushNotif(`EATEN BY ${c.name}`, 'eaten');
-          gameOver(`Devoured by ${c.name}`);
+          AudioEngine.death();
+          gameOver(`Devoured by ${c.name}`, false, c.name);
           return;
         }
-        // killfeed
         S.killfeed.push({ killer: c.name, victim: o.name, t: 0 });
       }
     }
@@ -768,70 +1664,68 @@ function tick(dt) {
   const toSpawn = Math.min(targetFood - foodNow, 8);
   for (let i=0; i<toSpawn; i++) S.entities.push(newFood(S));
 
-  // cull dead entities periodically
-  if (Math.random() < 0.05) {
-    S.entities = S.entities.filter(e => e.alive);
-  }
+  // cull
+  if (Math.random() < 0.05) S.entities = S.entities.filter(e => e.alive);
 
-  // camera follow + zoom out as you grow
+  // camera
   if (p.alive) {
     S.cam.x = lerp(S.cam.x, p.x, CFG.CAM_LERP);
     S.cam.y = lerp(S.cam.y, p.y, CFG.CAM_LERP);
-    const targetZoom = clamp(Math.pow(20/(p.mass+15), 0.22) * 1.5, 0.35, 1.4);
+    const targetZoom = clamp(Math.pow(20/(p.mass+15), 0.22)*1.5, 0.35, 1.4);
     S.cam.zoom = lerp(S.cam.zoom, targetZoom, 0.04);
   }
-
-  // shake decay
   S.shake *= 0.86;
 
-  // check win condition
-  const aliveBots = S.entities.filter(e => e.kind==='cell' && e.alive && e.isBot).length;
-  if (aliveBots === 0 && p.alive) {
-    gameOver('Last cell standing', true);
+  // replay buffer — capture every ~50ms last 3s of cell positions
+  if (Math.floor(S.time*20) !== Math.floor((S.time-dt)*20)) {
+    S.replayBuffer.push({
+      t: S.time,
+      cells: cells.map(c => ({ x:c.x, y:c.y, mass:c.mass, name:c.name,
+                               color:c.color, colorLight:c.colorLight,
+                               skinId:c.skinId, isPlayer: c===S.player })),
+    });
+    while (S.replayBuffer.length > 60) S.replayBuffer.shift(); // 3 seconds
   }
+
+  // win/lose checks
+  const aliveBots = cells.filter(c => c.isBot).length;
+  if (aliveBots === 0 && p.alive) gameOver('Last cell standing', true);
   if (S.matchTime <= 0) {
-    // ranked by mass
-    const ranked = S.entities.filter(e=>e.kind==='cell'&&e.alive).sort((a,b)=>b.mass-a.mass);
+    const ranked = cells.sort((a,b)=>b.mass-a.mass);
     const isWin = ranked[0] === p;
     gameOver(isWin ? 'Heaviest cell at timeout' : 'Time up', isWin);
   }
 }
 
 // ============================================================================
-// SURGE TRIGGER
+// SECTION 14 — SURGE TRIGGER
 // ============================================================================
 
 function triggerSurge() {
-  // pick one not in recent history
   let candidates = SURGE_KEYS.filter(k => !S.surgeHistory.includes(k));
   if (!candidates.length) { S.surgeHistory = []; candidates = SURGE_KEYS; }
   const key = choose(candidates);
   S.surgeHistory.unshift(key);
   if (S.surgeHistory.length > 3) S.surgeHistory.pop();
-
   S.activeSurge = key;
   const surge = SURGES[key];
   S.surgeTimer = surge.duration;
   surge.apply(S);
   S.nextSurgeIn = CFG.SURGE_INTERVAL;
   S.shake = Math.max(S.shake, 14);
-
-  // visual
   setGrade(surge.grade, 0.55);
   showSurgeAnnounce(surge.name, surge.desc, surge.color);
   pushNotif(`${surge.name} ENGAGED`, 'surge');
-
-  // burst at player position
-  if (S.player && S.player.alive) {
-    spawnBurst(S, S.player.x, S.player.y, surge.color, 24);
-  }
+  AudioEngine.surge();
+  if (S.player?.alive) spawnBurst(S, S.player.x, S.player.y, surge.color, 24);
 }
 
+
 // ============================================================================
-// RENDER
+// SECTION 15 — RENDERER
 // ============================================================================
 
-const canvas = document.getElementById('game');
+const canvas = $('game');
 const ctx = canvas.getContext('2d');
 
 function resize() {
@@ -839,46 +1733,35 @@ function resize() {
   canvas.height = window.innerHeight * (window.devicePixelRatio||1);
   canvas.style.width = window.innerWidth+'px';
   canvas.style.height = window.innerHeight+'px';
-  ctx.setTransform(window.devicePixelRatio||1,0,0,window.devicePixelRatio||1,0,0);
+  ctx.setTransform(window.devicePixelRatio||1, 0, 0, window.devicePixelRatio||1, 0, 0);
 }
 window.addEventListener('resize', resize);
 resize();
 
 function worldToScreen(x, y) {
-  const cx = window.innerWidth/2;
-  const cy = window.innerHeight/2;
-  return {
-    x: cx + (x - S.cam.x) * S.cam.zoom,
-    y: cy + (y - S.cam.y) * S.cam.zoom,
-  };
+  const cx = window.innerWidth/2, cy = window.innerHeight/2;
+  return { x: cx + (x - S.cam.x)*S.cam.zoom, y: cy + (y - S.cam.y)*S.cam.zoom };
 }
 
 function drawGrid() {
   const step = 80 * S.cam.zoom;
-  const cx = window.innerWidth/2;
-  const cy = window.innerHeight/2;
-  const ox = ((-S.cam.x * S.cam.zoom) % step + step) % step;
-  const oy = ((-S.cam.y * S.cam.zoom) % step + step) % step;
+  const cx = window.innerWidth/2, cy = window.innerHeight/2;
+  const ox = ((-S.cam.x*S.cam.zoom)%step+step)%step;
+  const oy = ((-S.cam.y*S.cam.zoom)%step+step)%step;
   ctx.strokeStyle = 'rgba(80,80,200,0.08)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = cx + ox - Math.ceil(cx/step)*step; x < window.innerWidth + step; x += step) {
-    ctx.moveTo(x|0, 0);
-    ctx.lineTo(x|0, window.innerHeight);
+  for (let x = cx + ox - Math.ceil(cx/step)*step; x < window.innerWidth+step; x+=step) {
+    ctx.moveTo(x|0, 0); ctx.lineTo(x|0, window.innerHeight);
   }
-  for (let y = cy + oy - Math.ceil(cy/step)*step; y < window.innerHeight + step; y += step) {
-    ctx.moveTo(0, y|0);
-    ctx.lineTo(window.innerWidth, y|0);
+  for (let y = cy + oy - Math.ceil(cy/step)*step; y < window.innerHeight+step; y+=step) {
+    ctx.moveTo(0, y|0); ctx.lineTo(window.innerWidth, y|0);
   }
   ctx.stroke();
-
-  // World border
-  const tl = worldToScreen(0, 0);
-  const br = worldToScreen(CFG.WORLD.w, CFG.WORLD.h);
+  // border
+  const tl = worldToScreen(0, 0), br = worldToScreen(CFG.WORLD.w, CFG.WORLD.h);
   ctx.strokeStyle = 'rgba(255,43,214,0.4)';
-  ctx.lineWidth = 2;
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = '#ff2bd6';
+  ctx.lineWidth = 2; ctx.shadowBlur = 20; ctx.shadowColor = '#ff2bd6';
   ctx.strokeRect(tl.x, tl.y, br.x-tl.x, br.y-tl.y);
   ctx.shadowBlur = 0;
 }
@@ -887,86 +1770,58 @@ function drawCell(c) {
   const s = worldToScreen(c.x, c.y);
   const r = massToRadius(c.mass) * S.cam.zoom;
   if (s.x < -r-50 || s.x > window.innerWidth+r+50 || s.y < -r-50 || s.y > window.innerHeight+r+50) return;
-
   const wobR = r + Math.sin(c.wobble)*r*0.02;
+  const wasAlpha = ctx.globalAlpha;
+  if (S.surgeMods.ghost) ctx.globalAlpha = 0.45;
 
-  // outer glow
-  const grad = ctx.createRadialGradient(s.x, s.y, wobR*0.4, s.x, s.y, wobR*1.8);
-  grad.addColorStop(0, c.color+'80');
-  grad.addColorStop(1, c.color+'00');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(s.x, s.y, wobR*1.8, 0, Math.PI*2);
-  ctx.fill();
-
-  // body
-  const body = ctx.createRadialGradient(
-    s.x - wobR*0.3, s.y - wobR*0.3, wobR*0.1,
-    s.x, s.y, wobR
-  );
-  body.addColorStop(0, c.colorLight);
-  body.addColorStop(0.7, c.color);
-  body.addColorStop(1, c.color);
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.arc(s.x, s.y, wobR, 0, Math.PI*2);
-  ctx.fill();
-
-  // boost trail
-  if (c.boosting) {
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 16;
-    ctx.shadowColor = c.color;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, wobR*1.05, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+  // if cell has a skin id, use the skin's render method
+  if (c.skinId && SKINS[c.skinId]) {
+    SKINS[c.skinId].render(ctx, s.x, s.y, wobR, S.time);
+  } else {
+    paintGlow(ctx, s.x, s.y, wobR, c.color);
+    paintRadial(ctx, s.x, s.y, wobR, c.colorLight, c.color);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = Math.max(1, wobR*0.04);
+    ctx.beginPath(); ctx.arc(s.x, s.y, wobR*0.92, 0, Math.PI*2); ctx.stroke();
   }
 
-  // inner rim
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = Math.max(1, wobR*0.04);
-  ctx.beginPath();
-  ctx.arc(s.x, s.y, wobR*0.92, 0, Math.PI*2);
-  ctx.stroke();
-
-  // eyes (gives personality)
+  // boost ring
+  if (c.boosting) {
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+    ctx.shadowBlur = 16; ctx.shadowColor = c.color;
+    ctx.beginPath(); ctx.arc(s.x, s.y, wobR*1.05, 0, Math.PI*2); ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  // eyes
   if (r > 12) {
     const eyeR = Math.max(2, wobR*0.13);
-    const eyeOffX = wobR * 0.35;
-    const eyeOffY = -wobR * 0.05;
+    const eyeOffX = wobR*0.35, eyeOffY = -wobR*0.05;
     for (const side of [-1, 1]) {
       const ex = s.x + side*eyeOffX + c.eyeOffset.x*wobR*0.15;
       const ey = s.y + eyeOffY;
       ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(ex, ey, eyeR, 0, Math.PI*2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(ex, ey, eyeR, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#000';
       ctx.beginPath();
       ctx.arc(ex + c.eyeOffset.x*eyeR*0.6, ey + c.eyeOffset.y*eyeR*0.6, eyeR*0.55, 0, Math.PI*2);
       ctx.fill();
     }
   }
-
-  // name (above cell)
+  // name + mass
   if (r > 8) {
     ctx.font = `${Math.max(10, Math.min(r*0.4, 18))}px 'JetBrains Mono', monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = c === S.player ? '#22f0ff' : '#ffffff';
     ctx.globalAlpha = 0.95;
-    ctx.shadowColor = c.color;
-    ctx.shadowBlur = 10;
+    ctx.shadowColor = c.color || '#22f0ff'; ctx.shadowBlur = 10;
     ctx.fillText(c.name, s.x, s.y - wobR - 14);
     ctx.shadowBlur = 0;
-    // mass below name
     ctx.font = `${Math.max(9, Math.min(r*0.25, 12))}px 'JetBrains Mono'`;
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.fillText(Math.floor(c.mass), s.x, s.y - wobR - 2);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = wasAlpha;
   }
+  ctx.globalAlpha = wasAlpha;
 }
 
 function drawFood(f) {
@@ -975,12 +1830,8 @@ function drawFood(f) {
   if (s.x < -10 || s.x > window.innerWidth+10 || s.y < -10 || s.y > window.innerHeight+10) return;
   f.pulse += 0.05;
   const pulse = 1 + Math.sin(f.pulse)*0.15;
-  ctx.fillStyle = f.color;
-  ctx.shadowBlur = 8;
-  ctx.shadowColor = f.color;
-  ctx.beginPath();
-  ctx.arc(s.x, s.y, r*pulse, 0, Math.PI*2);
-  ctx.fill();
+  ctx.fillStyle = f.color; ctx.shadowBlur = 8; ctx.shadowColor = f.color;
+  ctx.beginPath(); ctx.arc(s.x, s.y, r*pulse, 0, Math.PI*2); ctx.fill();
   ctx.shadowBlur = 0;
 }
 
@@ -989,12 +1840,61 @@ function drawParticle(p) {
   const t = p.life / (p.maxLife || 1);
   const size = p.size * S.cam.zoom * Math.max(0.1, t);
   ctx.globalAlpha = clamp(t, 0, 1);
-  ctx.fillStyle = p.color;
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = p.color;
+  ctx.fillStyle = p.color; ctx.shadowBlur = 10; ctx.shadowColor = p.color;
   ctx.fillRect(s.x - size/2, s.y - size/2, size, size);
-  ctx.shadowBlur = 0;
-  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+}
+
+function drawSurgeEffects() {
+  // black hole
+  if (S.surgeMods.blackHole) {
+    const bh = S.surgeMods.blackHole;
+    const s = worldToScreen(bh.x, bh.y);
+    const r = 200 * S.cam.zoom;
+    const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
+    g.addColorStop(0, '#000');
+    g.addColorStop(0.5, 'rgba(160,112,255,0.6)');
+    g.addColorStop(1, 'rgba(160,112,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI*2); ctx.fill();
+    // accretion disk lines
+    ctx.strokeStyle='rgba(255,43,214,0.6)';
+    ctx.lineWidth = 2;
+    for (let i=0;i<3;i++) {
+      const ang = S.time*2 + i*Math.PI*0.6;
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y, r*0.7, r*0.2, ang, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+  // tsunami
+  if (S.surgeMods.tsunami) {
+    const ts = S.surgeMods.tsunami;
+    const center = worldToScreen(ts.x, ts.y);
+    // wave is perpendicular to (vx, vy)
+    const perp = { x: -ts.vy, y: ts.vx };
+    const half = (ts.width/2) * S.cam.zoom;
+    const len = Math.max(window.innerWidth, window.innerHeight) * 1.5;
+    // draw a glowing band
+    ctx.save();
+    ctx.translate(center.x, center.y);
+    ctx.rotate(Math.atan2(perp.y, perp.x));
+    const grd = ctx.createLinearGradient(-half, 0, half, 0);
+    grd.addColorStop(0, 'rgba(85,136,255,0)');
+    grd.addColorStop(0.5, 'rgba(85,136,255,0.5)');
+    grd.addColorStop(1, 'rgba(85,136,255,0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(-half, -len/2, half*2, len);
+    // leading edge
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    ctx.shadowBlur = 20; ctx.shadowColor = '#5588ff';
+    ctx.beginPath();
+    ctx.moveTo(half * Math.sign(ts.vx + ts.vy + 0.01), -len/2);
+    ctx.lineTo(half * Math.sign(ts.vx + ts.vy + 0.01), len/2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
 }
 
 function drawBlackoutMask() {
@@ -1012,74 +1912,122 @@ function drawBlackoutMask() {
 function render() {
   ctx.fillStyle = '#05030f';
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-
-  // shake
   ctx.save();
-  if (S.shake > 0.1) {
-    ctx.translate(rand(-S.shake, S.shake), rand(-S.shake, S.shake));
-  }
-
+  if (S.shake > 0.1) ctx.translate(rand(-S.shake, S.shake), rand(-S.shake, S.shake));
   drawGrid();
-
-  // sort by mass for layering (small under big)
+  drawSurgeEffects();
   const visible = S.entities.filter(e => e.alive);
-  const cells = visible.filter(e => e.kind==='cell').sort((a,b) => a.mass - b.mass);
+  const cells = visible.filter(e => e.kind==='cell').sort((a,b) => a.mass-b.mass);
   const foods = visible.filter(e => e.kind==='food');
   const particles = visible.filter(e => e.kind==='particle');
-
   for (const f of foods) drawFood(f);
   for (const c of cells) drawCell(c);
   for (const p of particles) drawParticle(p);
-
   ctx.restore();
-
   drawBlackoutMask();
 }
 
 // ============================================================================
-// HUD UPDATE
+// SECTION 16 — KILL CAM
 // ============================================================================
 
-const $ = id => document.getElementById(id);
+function playKillCam(onComplete) {
+  if (!S.replayBuffer.length) { onComplete(); return; }
+  S.replaying = true;
+  $('killcam-overlay').classList.add('show');
+  const frames = [...S.replayBuffer];
+  let i = 0;
+  const playFrame = () => {
+    if (i >= frames.length) {
+      S.replaying = false;
+      $('killcam-overlay').classList.remove('show');
+      onComplete();
+      return;
+    }
+    const fr = frames[i];
+    // render the snapshot
+    ctx.fillStyle = '#05030f';
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    drawGrid();
+    // camera: follow player's last known position from frame
+    const playerCell = fr.cells.find(c => c.isPlayer);
+    if (playerCell) {
+      S.cam.x = lerp(S.cam.x, playerCell.x, 0.2);
+      S.cam.y = lerp(S.cam.y, playerCell.y, 0.2);
+    }
+    // draw cells from this frame
+    for (const c of fr.cells.sort((a,b) => a.mass-b.mass)) {
+      const s = worldToScreen(c.x, c.y);
+      const r = massToRadius(c.mass) * S.cam.zoom;
+      if (c.skinId && SKINS[c.skinId]) {
+        SKINS[c.skinId].render(ctx, s.x, s.y, r, fr.t);
+      } else {
+        paintGlow(ctx, s.x, s.y, r, c.color);
+        paintRadial(ctx, s.x, s.y, r, c.colorLight, c.color);
+      }
+      if (r > 10) {
+        ctx.font = `${Math.max(10, Math.min(r*0.4, 16))}px 'JetBrains Mono'`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle = c.isPlayer ? '#22f0ff' : '#fff';
+        ctx.fillText(c.name, s.x, s.y - r - 14);
+      }
+    }
+    i++;
+    setTimeout(playFrame, 120);  // slow-mo: ~3x slower than capture rate
+  };
+  playFrame();
+}
+
+
+// ============================================================================
+// SECTION 17 — HUD UPDATES + NOTIFICATIONS + UI EFFECTS
+// ============================================================================
 
 function updateHUD() {
   if (!S.player) return;
-  $('mass').textContent = Math.floor(S.player.mass);
-  $('kills').textContent = S.kills;
-  $('time').textContent = formatTime(Math.max(0, S.matchTime));
+  $('hud-mass').textContent = Math.floor(S.player.mass);
+  $('hud-kills').textContent = S.kills;
+  $('hud-time').textContent = formatTime(Math.max(0, S.matchTime));
   const cells = S.entities.filter(e => e.kind==='cell' && e.alive);
-  $('alive').textContent = cells.length;
-  // rank
-  const ranked = [...cells].sort((a,b) => b.mass - a.mass);
+  $('hud-alive').textContent = cells.length;
+  const ranked = [...cells].sort((a,b) => b.mass-a.mass);
   const rank = ranked.indexOf(S.player) + 1;
-  $('rank').textContent = S.player.alive ? '#'+rank : 'DEAD';
-  // surge bar
+  $('hud-rank').textContent = S.player.alive ? '#'+rank : 'DEAD';
+
   if (S.activeSurge) {
     const surge = SURGES[S.activeSurge];
     const pct = (S.surgeTimer / surge.duration) * 100;
-    $('surge-fill').style.width = pct + '%';
+    $('surge-fill').style.width = pct+'%';
     $('surge-label').textContent = surge.name + ' ACTIVE';
-    $('surge-fill').style.background = `linear-gradient(90deg, ${surge.color}, ${surge.color})`;
+    $('surge-fill').style.background = surge.color;
     $('surge-fill').style.boxShadow = `0 0 12px ${surge.color}`;
   } else {
-    const pct = (1 - S.nextSurgeIn / CFG.SURGE_INTERVAL) * 100;
-    $('surge-fill').style.width = pct + '%';
-    $('surge-fill').style.background = 'linear-gradient(90deg, var(--cyan), var(--magenta))';
+    const pct = (1 - S.nextSurgeIn/CFG.SURGE_INTERVAL) * 100;
+    $('surge-fill').style.width = pct+'%';
+    $('surge-fill').style.background = 'linear-gradient(90deg,var(--cyan),var(--magenta))';
     $('surge-fill').style.boxShadow = '0 0 10px var(--magenta)';
     $('surge-label').textContent = `NEXT SURGE IN ${Math.ceil(S.nextSurgeIn)}S`;
   }
-  // boost
-  $('boost-fill').style.width = (S.player.boost*100) + '%';
+  $('boost-fill').style.width = (S.player.boost*100)+'%';
 
   // leaderboard
   const top = ranked.slice(0, 8);
-  const rows = top.map((c, i) => `
+  $('lb-rows').innerHTML = top.map((c,i) => `
     <div class="lb-row ${c===S.player?'you':''}">
-      <span class="nm">${i+1}. ${c.name}</span>
+      <span class="nm">${i+1}. ${escapeHtml(c.name)}</span>
       <span class="mass">${Math.floor(c.mass)}</span>
-    </div>
-  `).join('');
-  $('lb-rows').innerHTML = rows;
+    </div>`).join('');
+
+  // daily HUD
+  const dc = DailyChallenge.current;
+  const p = ProfileStore.data;
+  if (dc && !p.daily.completed) {
+    $('daily-hud').style.display = 'block';
+    $('daily-hud-text').textContent = dc.text;
+    $('daily-hud-progress').textContent = `${Math.min(p.daily.progress, dc.target)} / ${dc.target}`;
+  } else {
+    $('daily-hud').style.display = 'none';
+  }
 }
 
 function formatTime(s) {
@@ -1087,10 +2035,6 @@ function formatTime(s) {
   const sec = Math.floor(s%60).toString().padStart(2,'0');
   return `${m}:${sec}`;
 }
-
-// ============================================================================
-// NOTIFS / SURGE ANNOUNCE / GRADE
-// ============================================================================
 
 function pushNotif(text, kind) {
   const n = document.createElement('div');
@@ -1111,51 +2055,121 @@ function showSurgeAnnounce(name, desc, color) {
 }
 
 function setGrade(color, opacity) {
-  const g = $('grade');
-  g.style.background = color;
-  g.style.opacity = opacity;
+  $('grade').style.background = color;
+  $('grade').style.opacity = opacity;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 // ============================================================================
-// GAME OVER
+// SECTION 18 — END OF MATCH / REWARDS
 // ============================================================================
 
-function gameOver(reason, win=false) {
+function gameOver(reason, win=false, killerName=null) {
   if (S.over) return;
   S.over = true;
   const cells = S.entities.filter(e => e.kind==='cell');
-  const ranked = [...cells].filter(c=>c.alive || c===S.player).sort((a,b) => b.mass - a.mass);
+  const ranked = [...cells].filter(c => c.alive || c===S.player).sort((a,b) => b.mass-a.mass);
   const rank = ranked.indexOf(S.player) + 1 || cells.length;
+  const survived = CFG.MATCH_SECONDS - S.matchTime;
 
-  setTimeout(() => {
+  // build match result
+  const matchResult = {
+    won: win, peakMass: S.peakMass, kills: S.kills, foodEaten: S.foodEaten,
+    surgesSurvived: S.surgesSurvived, rank, survived, killerName,
+  };
+  S.matchResult = matchResult;
+
+  // ── update profile stats ──
+  const p = ProfileStore.data;
+  p.stats.matchesPlayed += 1;
+  if (win) p.stats.matchesWon += 1;
+  p.stats.totalKills += S.kills;
+  if (!win) p.stats.totalDeaths += 1;
+  p.stats.peakMass = Math.max(p.stats.peakMass, S.peakMass);
+  p.stats.timeAlive += survived;
+  p.stats.surgesSurvived += S.surgesSurvived;
+  p.stats.foodEaten += S.foodEaten;
+
+  // ── calculate rewards (Glimmers) ──
+  // base: rank-based + kill bonus + survival bonus
+  const rankBonus = [50, 40, 30, 25, 20, 15, 12, 10, 8, 5, 3, 1][rank-1] || 1;
+  const killBonus = S.kills * 5;
+  const survivalBonus = Math.floor(survived / 20); // 1 per 20s
+  const winBonus = win ? 100 : 0;
+  const glimmersEarned = rankBonus + killBonus + survivalBonus + winBonus;
+  p._lifetimeGlimmers = (p._lifetimeGlimmers || 0) + glimmersEarned;
+  ProfileStore.addGlimmers(glimmersEarned);
+
+  // ── leaderboard entry ──
+  ProfileStore.addLeaderboardEntry({
+    mass: Math.floor(S.peakMass), kills: S.kills,
+    when: Date.now(), survived: Math.floor(survived), won: win,
+  });
+
+  // ── daily challenge ──
+  const dailyJustCompleted = DailyChallenge.onMatchEnd(matchResult);
+
+  // ── achievements ──
+  const newAchievements = Achievements.checkAll(matchResult);
+
+  ProfileStore.save();
+
+  // ── render game over (after kill cam if died) ──
+  const showOverScreen = () => {
     const go = $('gameover');
     $('result-text').textContent = win ? 'VICTORY' : 'ELIMINATED';
-    $('result-text').className = 'result ' + (win?'win':'lose');
+    $('result-text').className = 'result ' + (win ? 'win' : 'lose');
     $('result-reason').textContent = reason;
     $('final-mass').textContent = Math.floor(S.peakMass);
     $('final-kills').textContent = S.kills;
     $('final-rank').textContent = '#' + rank;
-    $('final-time').textContent = formatTime(CFG.MATCH_SECONDS - S.matchTime);
-    go.style.display = 'flex';
-  }, win ? 1500 : 1200);
+    $('final-time').textContent = formatTime(survived);
+    // rewards row
+    const chips = [];
+    chips.push(`<div class="reward-chip">+${glimmersEarned} ◆ GLIMMERS</div>`);
+    if (dailyJustCompleted) chips.push(`<div class="reward-chip daily">+${dailyJustCompleted.reward} ◆ DAILY CLEAR</div>`);
+    if (newAchievements.length) chips.push(`<div class="reward-chip unlock">★ ${newAchievements.length} ACHIEVEMENT${newAchievements.length>1?'S':''}</div>`);
+    $('rewards').innerHTML = chips.join('');
+    go.classList.remove('hidden');
+    AudioEngine.stopMusic();
+    if (win) AudioEngine.victory();
+    if (newAchievements.length) {
+      newAchievements.forEach((a, i) => {
+        setTimeout(() => {
+          pushNotif(`★ ${a.name}`, 'achieve');
+          AudioEngine.achievement();
+        }, i * 800);
+      });
+    }
+  };
+
+  if (!win && S.replayBuffer.length > 10) {
+    // play kill cam first, then show over screen
+    setTimeout(() => playKillCam(showOverScreen), 600);
+  } else {
+    setTimeout(showOverScreen, win ? 1200 : 800);
+  }
 }
 
 // ============================================================================
-// MAIN LOOP — fixed timestep simulation, variable render
+// SECTION 19 — MAIN LOOP
 // ============================================================================
 
 let lastT = performance.now();
 let accumulator = 0;
 
 function frame(now) {
-  const dt = Math.min((now - lastT) / 1000, 0.1);
+  const dt = Math.min((now - lastT)/1000, 0.1);
   lastT = now;
   accumulator += dt;
   while (accumulator >= CFG.TICK_DT) {
-    tick(CFG.TICK_DT);
+    if (!S.replaying) tick(CFG.TICK_DT);
     accumulator -= CFG.TICK_DT;
   }
-  if (S.player) {
+  if (S.player && !S.replaying) {
     render();
     updateHUD();
   }
@@ -1163,37 +2177,385 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+
 // ============================================================================
-// MENU LOGIC
+// SECTION 20 — SCREEN ROUTER
 // ============================================================================
 
-const menu = $('menu');
-const gameOverEl = $('gameover');
-const nameInput = $('name-input');
+const Router = {
+  current: 'menu',
+  show(screenId) {
+    ['menu','profile-screen','shop-screen','settings-screen','gameover'].forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      el.classList.toggle('hidden', id !== screenId);
+    });
+    this.current = screenId;
+    AudioEngine.ui();
+    if (screenId === 'menu') renderMenu();
+    else if (screenId === 'profile-screen') renderProfileScreen();
+    else if (screenId === 'shop-screen') renderShopScreen();
+    else if (screenId === 'settings-screen') renderSettingsScreen();
+  },
+  hideAll() {
+    ['menu','profile-screen','shop-screen','settings-screen','gameover'].forEach(id => {
+      $(id)?.classList.add('hidden');
+    });
+  }
+};
 
-// random default name
-const defaultNames = ['VOID','SPARK','HEX','DRIFT','PULSE','ECHO','NEON','APEX'];
-nameInput.value = choose(defaultNames) + randi(10,99);
+// back buttons (data-back attribute)
+document.querySelectorAll('[data-back]').forEach(b => {
+  b.addEventListener('click', () => Router.show(b.dataset.back));
+});
 
-function startMatch() {
-  initMatch(nameInput.value || 'PLAYER');
-  menu.style.display = 'none';
-  gameOverEl.style.display = 'none';
+// ============================================================================
+// SECTION 21 — MENU RENDERING
+// ============================================================================
+
+function renderMenu() {
+  const p = ProfileStore.data;
+  // profile summary
+  $('profile-summary').innerHTML = `
+    <div class="ps-stat"><div class="ps-v">${p.stats.matchesPlayed}</div><div class="ps-l">Matches</div></div>
+    <div class="ps-stat"><div class="ps-v">${p.stats.matchesWon}</div><div class="ps-l">Wins</div></div>
+    <div class="ps-stat"><div class="ps-v">${p.stats.totalKills}</div><div class="ps-l">Kills</div></div>
+    <div class="ps-stat"><div class="ps-v">${p.glimmers}</div><div class="ps-l">Glimmers</div></div>
+  `;
+
+  // daily
+  const dc = DailyChallenge.refresh();
+  if (dc) {
+    const done = p.daily.completed;
+    $('daily-card').className = 'daily-card' + (done ? ' done' : '');
+    $('daily-card').innerHTML = `
+      <div class="dc-left">
+        <div class="dc-tag">${done ? '✓ DAILY COMPLETE' : 'DAILY CHALLENGE'}</div>
+        <div class="dc-text">${escapeHtml(dc.text)}</div>
+        <div style="font-size:10px;opacity:0.5;margin-top:2px;letter-spacing:0.1em">
+          ${done ? 'Resets tomorrow' : `Progress: ${Math.min(p.daily.progress, dc.target)} / ${dc.target}`}
+        </div>
+      </div>
+      <div class="dc-reward">+${dc.reward}</div>
+    `;
+  }
+
+  // tip rotation
+  const tips = [
+    'Boost has a cost — use it strategically.',
+    'Bigger cells move slower. Mass is power AND a trap.',
+    'SURGE events flip the rules. Stay adaptable.',
+    'Unlock skins in the shop. Earn Glimmers by playing.',
+    'Daily challenges reset every 24 hours.',
+    'Last cell standing wins. Or biggest at timeout.',
+    'Press SPACE or click to boost.',
+  ];
+  $('tip-extra').textContent = choose(tips);
+
+  // name in input
+  $('name-input').value = p.callsign;
+}
+
+// ============================================================================
+// SECTION 22 — PROFILE SCREEN
+// ============================================================================
+
+function renderProfileScreen() {
+  const p = ProfileStore.data;
+  const body = $('profile-body');
+  const ownedSkins = SKIN_LIST.filter(s => p.owned.includes(s.id)).length;
+  const totalAch = ACHIEVEMENTS.length;
+  const unlockedAch = ACHIEVEMENTS.filter(a => p.achievements[a.id]?.unlocked).length;
+
+  body.innerHTML = `
+    <div class="profile-card">
+      <div class="avatar"></div>
+      <div class="info">
+        <h3>${escapeHtml(p.callsign)}</h3>
+        <div class="joined">JOINED ${new Date(p.createdAt).toLocaleDateString()}</div>
+        <div class="currency-bar">
+          <div class="currency glimmers"><span class="ico">◆</span>${p.glimmers}</div>
+          <div class="currency sparks"><span class="ico">✦</span>${p.sparks}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-tile"><div class="v">${p.stats.matchesPlayed}</div><div class="l">Matches</div></div>
+      <div class="stat-tile"><div class="v">${p.stats.matchesWon}</div><div class="l">Wins</div></div>
+      <div class="stat-tile"><div class="v">${p.stats.totalKills}</div><div class="l">Kills</div></div>
+      <div class="stat-tile"><div class="v">${Math.floor(p.stats.peakMass)}</div><div class="l">Best Mass</div></div>
+      <div class="stat-tile"><div class="v">${Math.floor(p.stats.timeAlive/60)}m</div><div class="l">Time Alive</div></div>
+      <div class="stat-tile"><div class="v">${p.stats.surgesSurvived}</div><div class="l">Surges</div></div>
+      <div class="stat-tile"><div class="v">${ownedSkins}/${SKIN_LIST.length}</div><div class="l">Skins</div></div>
+      <div class="stat-tile"><div class="v">${unlockedAch}/${totalAch}</div><div class="l">Achievements</div></div>
+    </div>
+
+    <div class="section-title">Achievements</div>
+    <div class="achievements">
+      ${ACHIEVEMENTS.map(a => {
+        const done = !!(p.achievements[a.id]?.unlocked);
+        return `<div class="ach ${done?'done':''}">
+          <div class="ico">${a.icon}</div>
+          <div class="info"><div class="name">${escapeHtml(a.name)}</div><div class="desc">${escapeHtml(a.desc)}${done?'':` · +${a.reward} ◆`}</div></div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="section-title">Personal Best Runs</div>
+    <div class="lb-list">
+      ${p.leaderboard.length === 0
+        ? '<div class="lb-empty">No matches played yet</div>'
+        : p.leaderboard.map((e, i) => `
+          <div class="lb-item">
+            <div class="rank">${i+1}</div>
+            <div class="name">${e.won ? '★ WIN' : '— LOSS'}</div>
+            <div class="mass">${e.mass}</div>
+            <div class="kills">${e.kills}✕</div>
+            <div class="when">${new Date(e.when).toLocaleDateString()}</div>
+          </div>`).join('')
+      }
+    </div>
+  `;
+}
+
+// ============================================================================
+// SECTION 23 — SHOP SCREEN
+// ============================================================================
+
+function renderShopScreen() {
+  const p = ProfileStore.data;
+  const body = $('shop-body');
+  body.innerHTML = `
+    <div class="shop-currency">
+      <div class="c glimmers"><span>◆</span>${p.glimmers} GLIMMERS</div>
+      <div class="c sparks"><span>✦</span>${p.sparks} SPARKS</div>
+    </div>
+    <div class="shop-grid" id="shop-grid"></div>
+  `;
+  const grid = $('shop-grid');
+  // sort: equipped first, then owned, then by rarity & price
+  const rarityOrder = { common:0, rare:1, epic:2, legendary:3 };
+  const sorted = [...SKIN_LIST].sort((a,b) => {
+    if (a.id === p.equipped) return -1;
+    if (b.id === p.equipped) return 1;
+    const ao = p.owned.includes(a.id) ? 0 : 1;
+    const bo = p.owned.includes(b.id) ? 0 : 1;
+    if (ao !== bo) return ao - bo;
+    if (rarityOrder[a.rarity] !== rarityOrder[b.rarity]) return rarityOrder[a.rarity] - rarityOrder[b.rarity];
+    return a.price - b.price;
+  });
+
+  for (const skin of sorted) {
+    const owned = p.owned.includes(skin.id);
+    const equipped = p.equipped === skin.id;
+    const canAfford = p.glimmers >= skin.price;
+    const item = document.createElement('div');
+    item.className = `shop-item ${skin.rarity} ${owned?'owned':'locked'} ${equipped?'equipped':''}`;
+    item.innerHTML = `
+      <div class="preview"><canvas width="180" height="180" data-skin="${skin.id}"></canvas></div>
+      <div class="rarity-tag">${skin.rarity}</div>
+      <div class="name">${escapeHtml(skin.name)}</div>
+      ${owned ? `
+        <button class="action-btn" data-action="${equipped?'':'equip'}" data-skin="${skin.id}" ${equipped?'disabled':''}>
+          ${equipped ? '✓ EQUIPPED' : 'EQUIP'}
+        </button>` : `
+        <div class="price">
+          <div class="cost">◆ ${skin.price}</div>
+        </div>
+        <button class="action-btn" data-action="buy" data-skin="${skin.id}" ${canAfford?'':'disabled'}>
+          ${canAfford ? 'PURCHASE' : 'NEED ' + (skin.price - p.glimmers) + ' ◆'}
+        </button>
+      `}
+    `;
+    grid.appendChild(item);
+  }
+
+  // animate previews
+  for (const c of grid.querySelectorAll('canvas[data-skin]')) {
+    const skin = SKINS[c.dataset.skin];
+    const ictx = c.getContext('2d');
+    let t = 0;
+    const loop = () => {
+      if (!c.isConnected) return;
+      ictx.clearRect(0, 0, 180, 180);
+      skin.render(ictx, 90, 90, 56, t);
+      t += 0.04;
+      requestAnimationFrame(loop);
+    };
+    loop();
+  }
+
+  // attach handlers
+  grid.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const skinId = btn.dataset.skin;
+      const action = btn.dataset.action;
+      if (action === 'buy') {
+        const skin = SKINS[skinId];
+        if (ProfileStore.spendGlimmers(skin.price)) {
+          ProfileStore.unlock(skinId);
+          ProfileStore.equip(skinId);
+          AudioEngine.purchase();
+          renderShopScreen();
+        }
+      } else if (action === 'equip') {
+        ProfileStore.equip(skinId);
+        AudioEngine.uiBig();
+        renderShopScreen();
+      }
+    });
+  });
+}
+
+// ============================================================================
+// SECTION 24 — SETTINGS SCREEN
+// ============================================================================
+
+function renderSettingsScreen() {
+  const s = ProfileStore.data.settings;
+  const body = $('settings-body');
+  body.innerHTML = `
+    <div class="settings-list">
+      <div class="setting">
+        <div class="info"><div class="name">Master Volume</div><div class="desc">Overall sound level</div></div>
+        <div><input type="range" min="0" max="1" step="0.05" value="${s.masterVolume}" data-setting="masterVolume"><span style="margin-left:12px;font-family:'Major Mono Display';color:var(--cyan)" id="vol-master">${Math.round(s.masterVolume*100)}</span></div>
+      </div>
+      <div class="setting">
+        <div class="info"><div class="name">SFX Volume</div><div class="desc">Game sound effects</div></div>
+        <div><input type="range" min="0" max="1" step="0.05" value="${s.sfxVolume}" data-setting="sfxVolume"><span style="margin-left:12px;font-family:'Major Mono Display';color:var(--cyan)" id="vol-sfx">${Math.round(s.sfxVolume*100)}</span></div>
+      </div>
+      <div class="setting">
+        <div class="info"><div class="name">Music Volume</div><div class="desc">Background synthwave</div></div>
+        <div><input type="range" min="0" max="1" step="0.05" value="${s.musicVolume}" data-setting="musicVolume"><span style="margin-left:12px;font-family:'Major Mono Display';color:var(--cyan)" id="vol-music">${Math.round(s.musicVolume*100)}</span></div>
+      </div>
+      <div class="setting">
+        <div class="info"><div class="name">Mouse Sensitivity</div><div class="desc">Movement responsiveness</div></div>
+        <div><input type="range" min="0.3" max="2" step="0.1" value="${s.sensitivity}" data-setting="sensitivity"><span style="margin-left:12px;font-family:'Major Mono Display';color:var(--cyan)" id="sens-val">${s.sensitivity.toFixed(1)}×</span></div>
+      </div>
+      <div class="setting">
+        <div class="info"><div class="name">Reduce Motion</div><div class="desc">Disable shake, particles, screen effects</div></div>
+        <div class="toggle ${s.reduceMotion?'on':''}" data-setting="reduceMotion"></div>
+      </div>
+
+      <div class="danger-section">
+        <div class="name">⚠ Danger Zone</div>
+        <div class="desc">Reset clears your profile permanently — all stats, currency, and unlocks. Cannot be undone.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn small magenta" id="signout-btn">SIGN OUT</button>
+          <button class="btn small" style="border-color:var(--red);color:var(--red)" id="reset-btn">RESET PROFILE</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  body.querySelectorAll('input[type=range]').forEach(input => {
+    input.addEventListener('input', () => {
+      const key = input.dataset.setting;
+      ProfileStore.data.settings[key] = parseFloat(input.value);
+      ProfileStore.save();
+      AudioEngine.applyVolumes(ProfileStore.data.settings);
+      // update label
+      if (key === 'masterVolume') $('vol-master').textContent = Math.round(input.value*100);
+      if (key === 'sfxVolume') $('vol-sfx').textContent = Math.round(input.value*100);
+      if (key === 'musicVolume') $('vol-music').textContent = Math.round(input.value*100);
+      if (key === 'sensitivity') $('sens-val').textContent = parseFloat(input.value).toFixed(1)+'×';
+    });
+  });
+  body.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => {
+      const key = t.dataset.setting;
+      ProfileStore.data.settings[key] = !ProfileStore.data.settings[key];
+      t.classList.toggle('on', ProfileStore.data.settings[key]);
+      document.body.classList.toggle('reduce-motion', ProfileStore.data.settings.reduceMotion);
+      ProfileStore.save();
+      AudioEngine.ui();
+    });
+  });
+  $('signout-btn').addEventListener('click', async () => {
+    if (confirm('Sign out of this profile? Your data remains saved on this device.')) {
+      await AuthService.signOut();
+      currentUser = null;
+      Router.show('menu');
+      bootstrap();
+    }
+  });
+  $('reset-btn').addEventListener('click', () => {
+    if (confirm('PERMANENTLY delete your profile? This cannot be undone.')) {
+      ProfileStore.reset();
+      Router.show('menu');
+      bootstrap();
+    }
+  });
+}
+
+// ============================================================================
+// SECTION 25 — BOOTSTRAP & MAIN BUTTON HANDLERS
+// ============================================================================
+
+let currentUser = null;
+
+async function bootstrap() {
+  currentUser = AuthService.currentUser();
+  if (currentUser) {
+    await ProfileStore.load(currentUser.uid);
+  } else {
+    // generate a default callsign
+    const defaultNames = ['VOID','SPARK','HEX','DRIFT','PULSE','ECHO','NEON','APEX'];
+    const callsign = choose(defaultNames) + randi(10, 99);
+    currentUser = await AuthService.signIn(callsign);
+    await ProfileStore.load(currentUser.uid);
+    ProfileStore.data.callsign = callsign;
+    ProfileStore.save();
+  }
+  DailyChallenge.refresh();
+  document.body.classList.toggle('reduce-motion', !!ProfileStore.data.settings.reduceMotion);
+  Router.show('menu');
+}
+
+async function startMatch() {
+  // make sure audio is unlocked (browsers require user gesture)
+  AudioEngine.init();
+  AudioEngine.resume();
+  // update callsign from input if changed
+  const newName = ($('name-input').value || '').trim().toUpperCase();
+  if (newName && newName !== ProfileStore.data.callsign && newName.length >= 2) {
+    ProfileStore.data.callsign = newName;
+    ProfileStore.save();
+    // also re-sign-in to use the new local UID (so saves are namespaced correctly)
+    currentUser = await AuthService.signIn(newName);
+    // load or create that profile
+    const existed = !!localStorage.getItem(ProfileStore.storageKey(currentUser.uid));
+    await ProfileStore.load(currentUser.uid);
+    if (!existed) {
+      ProfileStore.data.callsign = newName;
+      ProfileStore.save();
+    }
+  }
+  initMatch(ProfileStore.data.callsign);
+  Router.hideAll();
+  AudioEngine.startMusic();
+  AudioEngine.uiBig();
 }
 
 $('play-btn').addEventListener('click', startMatch);
 $('rematch-btn').addEventListener('click', startMatch);
-$('menu-btn').addEventListener('click', () => {
-  gameOverEl.style.display = 'none';
-  menu.style.display = 'flex';
-});
-nameInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') startMatch();
-});
+$('menu-btn').addEventListener('click', () => Router.show('menu'));
+$('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') startMatch(); });
+$('nav-profile').addEventListener('click', () => Router.show('profile-screen'));
+$('nav-shop').addEventListener('click', () => Router.show('shop-screen'));
+$('nav-settings').addEventListener('click', () => Router.show('settings-screen'));
 
-// initial state placeholder so render doesn't crash
-S.player = { x: CFG.WORLD.w/2, y: CFG.WORLD.h/2, mass: CFG.START_MASS, alive: true, boost:1 };
+// Audio context unlock on first user gesture (browser requirement)
+const audioUnlock = () => { AudioEngine.init(); AudioEngine.resume(); document.removeEventListener('click', audioUnlock); document.removeEventListener('keydown', audioUnlock); };
+document.addEventListener('click', audioUnlock);
+document.addEventListener('keydown', audioUnlock);
+
+// placeholder player so render doesn't crash before first match
+S.player = { x: CFG.WORLD.w/2, y: CFG.WORLD.h/2, mass: CFG.START_MASS, alive: true, boost: 1 };
 S.cam.x = CFG.WORLD.w/2; S.cam.y = CFG.WORLD.h/2;
+
+bootstrap();
 
 </script>
 </body>
