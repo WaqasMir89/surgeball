@@ -300,7 +300,8 @@
 
   /* mobile menu button on in-game HUD (replaces ESC) */
   #menu-btn-mobile{position:absolute;top:14px;right:14px;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:18px;display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:12;backdrop-filter:blur(6px)}
-  body.touch-mode #menu-btn-mobile{display:flex}
+  /* only shown during gameplay, not on menu/profile/shop screens */
+  body.touch-mode.in-match #menu-btn-mobile{display:flex}
 
   /* ─── MOBILE LAYOUT ──────────────────────────────────────────── */
   @media (max-width:760px){
@@ -340,8 +341,10 @@
     /* shared screens — top-align so long content (profile/shop/settings) doesn't get clipped */
     #profile-screen,#shop-screen,#settings-screen{justify-content:flex-start;padding:20px 0 80px}
     /* menu and game-over stay vertically centered */
-    .screen-header{padding:16px 18px;margin-bottom:10px}
+    .screen-header{padding:14px 16px;margin-bottom:10px;position:sticky;top:0;background:linear-gradient(180deg,rgba(5,3,15,0.95),rgba(5,3,15,0.7) 80%,transparent);z-index:5;backdrop-filter:blur(8px)}
     .screen-header h2{font-size:20px;letter-spacing:0.04em}
+    /* back button: make bigger and unmissable on mobile */
+    .screen-header [data-back]{padding:12px 18px;font-size:11px;letter-spacing:0.2em;border-width:1.5px;min-width:88px;min-height:44px;display:flex;align-items:center;justify-content:center}
     .screen-body{padding:0 16px 80px}
 
     /* profile */
@@ -1618,8 +1621,10 @@ function touchOnMenuBtn(t) {
 }
 
 window.addEventListener('touchstart', e => {
-  // only react during gameplay (not when a menu screen is showing)
-  if (Router.current !== 'ingame') return;
+  // only react during active gameplay — NOT when:
+  //   - a menu screen is showing (Router.current !== 'ingame')
+  //   - the match has ended and the gameover screen is up (S.over)
+  if (Router.current !== 'ingame' || S.over) return;
   for (const t of e.changedTouches) {
     // touch on boost button → boost
     if (touchOnBoost(t)) {
@@ -1645,7 +1650,7 @@ window.addEventListener('touchstart', e => {
 }, { passive: false });
 
 window.addEventListener('touchmove', e => {
-  if (Router.current !== 'ingame') return;
+  if (Router.current !== 'ingame' || S.over) return;
   for (const t of e.changedTouches) {
     if (t.identifier === joyTouchId) {
       updateKnobPosition(t.clientX - input.joyOriginX, t.clientY - input.joyOriginY);
@@ -2407,6 +2412,18 @@ function gameOver(reason, win=false, killerName=null) {
     if (newAchievements.length) chips.push(`<div class="reward-chip unlock">★ ${newAchievements.length} ACHIEVEMENT${newAchievements.length>1?'S':''}</div>`);
     $('rewards').innerHTML = chips.join('');
     go.classList.remove('hidden');
+    // game over — hide boost button & ☰ menu button, and clear any active
+    // touch input state (joystick, boost) left over from the dying moment.
+    document.body.classList.remove('in-match');
+    const _bb = $('boost-btn');
+    if (_bb) { _bb.style.display = 'none'; _bb.classList.remove('active'); }
+    if (input.isTouchMode) {
+      input.boostHeld = false;
+      input.joyActive = false;
+      input.dirX = 0; input.dirY = 0;
+      joyTouchId = null; boostTouchId = null;
+      if (joystickEl) joystickEl.classList.remove('active');
+    }
     AudioEngine.stopMusic();
     if (win) AudioEngine.victory();
     if (newAchievements.length) {
@@ -2464,7 +2481,8 @@ const Router = {
       el.classList.toggle('hidden', id !== screenId);
     });
     this.current = screenId;
-    // hide mobile boost button when not in match
+    // not in a match — hide mobile boost & menu buttons
+    document.body.classList.remove('in-match');
     const boostBtn = $('boost-btn');
     if (boostBtn) boostBtn.style.display = 'none';
     AudioEngine.ui();
@@ -2472,13 +2490,16 @@ const Router = {
     else if (screenId === 'profile-screen') renderProfileScreen();
     else if (screenId === 'shop-screen') renderShopScreen();
     else if (screenId === 'settings-screen') renderSettingsScreen();
+    // scroll the screen to top so the back button (in header) is visible
+    const el = $(screenId);
+    if (el && el.scrollTo) el.scrollTo(0, 0);
   },
   hideAll() {
     ['menu','profile-screen','shop-screen','settings-screen','gameover'].forEach(id => {
       $(id)?.classList.add('hidden');
     });
     this.current = 'ingame';
-    // show boost button on mobile when entering a match
+    document.body.classList.add('in-match');
     if (input.isTouchMode) {
       const boostBtn = $('boost-btn');
       if (boostBtn) boostBtn.style.display = 'flex';
@@ -2489,6 +2510,34 @@ const Router = {
 // back buttons (data-back attribute)
 document.querySelectorAll('[data-back]').forEach(b => {
   b.addEventListener('click', () => Router.show(b.dataset.back));
+});
+
+// ── Android hardware back / browser back gesture support ──
+// Push a history entry whenever we navigate into a sub-screen, so the system
+// back button pops us back to the menu instead of leaving the page entirely.
+const _navStack = [];
+const _origRouterShow = Router.show.bind(Router);
+Router.show = function(screenId) {
+  // If navigating into a sub-screen from the menu, push a history state
+  const wasOnMenu = this.current === 'menu' || this.current === 'gameover';
+  const goingToSubScreen = (screenId === 'profile-screen' || screenId === 'shop-screen' || screenId === 'settings-screen');
+  _origRouterShow(screenId);
+  if (wasOnMenu && goingToSubScreen) {
+    try {
+      history.pushState({ screen: screenId }, '', '#' + screenId);
+      _navStack.push(screenId);
+    } catch(e) {}
+  } else if (screenId === 'menu') {
+    // returning to menu — clear our pushed states
+    _navStack.length = 0;
+  }
+};
+window.addEventListener('popstate', () => {
+  // Browser back: if we're on a sub-screen, return to menu
+  if (Router.current === 'profile-screen' || Router.current === 'shop-screen' || Router.current === 'settings-screen') {
+    _origRouterShow('menu');
+    _navStack.length = 0;
+  }
 });
 
 // ============================================================================
